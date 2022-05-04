@@ -1,9 +1,11 @@
 #line 20 "1_fn-gen.md"
 #include <iostream>
 
+extern "C" int FnTest__init();
 extern "C" int FnTest_Answer();
 
 int main() {
+	FnTest__init();
 	constexpr int expected { 42 };
 	int got { FnTest_Answer() };
 	if (got == expected) {
