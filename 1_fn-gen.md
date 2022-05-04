@@ -199,9 +199,7 @@ const Token &Lexer::read_number(int ch) {
 	for (; ch != EOF && std::isdigit(ch); ch = std::cin.get()) {
 		rep += static_cast<char>(ch);
 		int digit { ch - '0' };
-		int limit { std::numeric_limits<int>::max() - digit };
-		int carry { limit % 10 };
-		if (value + carry > limit/10) {
+		if (value > (std::numeric_limits<int>::max() - digit) / 10) {
 			throw Error { "INTEGER too big: " + rep };
 		}
 		value = value * 10 + digit;

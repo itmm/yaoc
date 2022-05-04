@@ -1,4 +1,4 @@
-#line 484 "1_fn-gen.md"
+#line 482 "1_fn-gen.md"
 #include "lex.h"
 #include "mod.h"
 #line 49
@@ -6,7 +6,7 @@
 
 int main() {
 	// write expected output
-#line 488
+#line 486
 	Lexer lx;
 	Module::parse(lx);
 #line 62

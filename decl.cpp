@@ -1,4 +1,4 @@
-#line 314 "1_fn-gen.md"
+#line 312 "1_fn-gen.md"
 #include "decl.h"
 
 std::string Declaration::mangle(std::string name) {
