@@ -1,0 +1,6 @@
+MODULE FnTest;
+	PROCEDURE Answer*(): INTEGER;
+		BEGIN
+			RETURN 42
+	END Answer;
+END FnTest.
