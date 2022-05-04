@@ -1,4 +1,4 @@
-.PHONY: tests real_tests clean lines
+.PHONY: tests real_tests clean mdp_clean lines
 
 tests:
 	mdp README.md
@@ -24,6 +24,9 @@ t_fn-test: yaoc t_fn-test.cpp FnTest.mod
 
 clean:
 	rm -Rf yaoc t_fn-test build deps
+
+mdp_clean: clean
+	rm *.cpp *.h *.mod *.ll
 
 lines:
 	cat $(wildcard *.cpp) $(wildcard *.h) $(wildcard *.mod) Makefile | wc -l
