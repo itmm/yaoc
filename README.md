@@ -35,6 +35,6 @@ aus der alles generiert werden kann. Das mitgelieferter `Makefile` erledigt
 das komplette Bauen und Testen des Compilers.
 
 Beginnen wir nun mit dem ersten Schritt: eine Funktion in Oberon definieren und
-aus C++ heraus aufrufen. Dies wird in [./1_fn-gen.md](1_fn-gen.md)
+aus C++ heraus aufrufen. Dies wird in [1_fn-gen.md](./1_fn-gen.md)
 beschrieben.
 

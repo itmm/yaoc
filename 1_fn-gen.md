@@ -63,3 +63,34 @@ int main() {
 ```
 
 Es wird direkt der erwartete IR-Code rausgeschrieben.
+Der Vorteil ist jedoch, dass wir damit den Test-Case schon komplett zum Laufen
+bringen können:
+
+```
+cat FnTest.mod | ./yaoc > FnTest.ll
+clang++ t_fn-test.cpp FnTest.ll -o t_fn-test
+./t_fn-test
+```
+
+Das mit diesem Projekt abgelegte [Makefile](./Makefile) erledigt das Bauen und
+Ausführen der Tests automagisch.
+
+Wir können jetzt anfangen die Eingabe zu lesen. Die Eingabe wird in Blöcke
+(sogenannte Token) zerlegt. Es gibt folgende Arten von Tokens:
+
+* Schlüsselwörter
+  * `BEGIN`, `END`, `MODULE`, `PROCEDURE`, `RETURN`
+* Bezeichner
+  * Folge aus Buchstaben und Ziffern, die mit einem Buchstaben beginnen und
+    kein Schlüsselwort sind
+  * zum Beispiel: `Answer`, `FnTest`, `INTEGER`
+* Ganzzahlen
+  * Folge von Ziffern
+  * zum Beispiel: `42`
+* Kontrollzeichen
+  * `(`, `)`, `*`, `.`, `:`, `;`
+
+Zwischen einzelnen Tokens können Leerzeichen und Zeilenumbrüche stehen. Diese
+sind notwendig, um Bezeichner, Zahlen und Schlüsselwörter voneinander zu trennen
+(`MODULEFnTest`, `PROCEDUREAnswer`, `BEGINRETURN42` sind gültige Bezeichner).
+
