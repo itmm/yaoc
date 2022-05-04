@@ -12,8 +12,8 @@ build/%.o: %.cpp
 	mkdir -p build deps
 	clang++ $(CXXFLAGS) -c $(notdir $(@:.o=.cpp)) -o $@ -MMD -MF deps/$(notdir $(@:.o=.dep))
 
-yaoc: build/yaoc.o build/lex.o
-	clang++ $(CXXFLAGS) -o $@ build/yaoc.o build/lex.o
+yaoc: build/yaoc.o build/lex.o build/mod.o build/proc.o build/decl.o
+	clang++ $(CXXFLAGS) -o $@ build/yaoc.o build/lex.o build/mod.o build/proc.o build/decl.o
 
 real_tests: t_fn-test
 	./t_fn-test

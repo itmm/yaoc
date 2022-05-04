@@ -12,7 +12,7 @@ class Token {
 			BEGIN, END, MODULE, PROCEDURE, RETURN
 		};
 	private:
-		const Kind kind_;
+		Kind kind_;
 		std::string representation_;
 		int int_value_;
 	public:

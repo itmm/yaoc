@@ -1,4 +1,4 @@
-#line 225 "1_fn-gen.md"
+#line 243 "1_fn-gen.md"
 #pragma once
 
 #include <stdexcept>
@@ -8,6 +8,8 @@ class Error: public std::exception {
 		std::string what_;
 	public:
 		Error(std::string what): what_ { what } { }
-		const char *what() const noexcept override { return what_.c_str(); }
+		const char *what() const noexcept override {
+			return what_.c_str();
+		}
 };
 

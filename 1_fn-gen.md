@@ -111,7 +111,7 @@ class Token {
 			BEGIN, END, MODULE, PROCEDURE, RETURN
 		};
 	private:
-		const Kind kind_;
+		Kind kind_;
 		std::string representation_;
 		int int_value_;
 	public:
@@ -134,10 +134,14 @@ in Token umwandelt:
 #include "tok.h"
 
 class Lexer {
-		Token read_number(int ch);
-		Token read_identifier_or_keyword(int ch);
+		Token tok_;
+		const Token &read_number(int ch);
+		const Token &read_identifier_or_keyword(int ch);
 	public:
-		Token next();
+		const Token &advance();
+		Lexer():
+			tok_ { Token::Kind::end_of_input, "" }
+		{ advance(); }
 };
 ```
 
@@ -154,30 +158,43 @@ gehalten:
 #include <limits>
 #include <map>
 
-Token Lexer::next() {
+const Token &Lexer::advance() {
 	auto ch = std::cin.get();
 	while (ch != EOF && ch <= ' ') { ch = std::cin.get(); }
-	if (ch == EOF) { return Token { Token::Kind::end_of_input, "" }; }
-	if (std::isalpha(ch)) { return read_identifier_or_keyword(ch); }
-	else if (std::isdigit(ch)) { return read_number(ch); }
+	if (ch == EOF) { tok_ = Token { Token::Kind::end_of_input, "" }; }
+	else if (std::isalpha(ch)) { tok_ = read_identifier_or_keyword(ch); }
+	else if (std::isdigit(ch)) { tok_ = read_number(ch); }
 	else switch (ch) {
-		case '(': return Token { Token::Kind::left_parenthesis, "(" };
-		case ')': return Token { Token::Kind::right_parenthesis, ")" };
-		case '*': return Token { Token::Kind::asterisk, "*" };
-		case '.': return Token { Token::Kind::period, "." };
-		case ':': return Token { Token::Kind::colon, ":" };
-		case ';': return Token { Token::Kind::semicolon, ";" };
+		case '(': 
+			tok_ = Token { Token::Kind::left_parenthesis, "(" };
+			break;
+		case ')':
+			tok_ = Token { Token::Kind::right_parenthesis, ")" };
+			break;
+		case '*':
+			tok_ = Token { Token::Kind::asterisk, "*" };
+			break;
+		case '.':
+			tok_ = Token { Token::Kind::period, "." };
+			break;
+		case ':':
+			tok_ = Token { Token::Kind::colon, ":" };
+			break;
+		case ';':
+			tok_ = Token { Token::Kind::semicolon, ";" };
+			break;
 		default: throw Error {
-			 std::string { "unknown char '" } +
-			 static_cast<char>(ch) + "'"
+			std::string { "unknown char '" } +
+			static_cast<char>(ch) + "'"
 		};
 	}
+	return tok_;
 }
 ```
 
 ```c++
 // ...
-Token Lexer::read_number(int ch) {
+const Token &Lexer::read_number(int ch) {
 	std::string rep { }; int value { 0 };
 	for (; ch != EOF && std::isdigit(ch); ch = std::cin.get()) {
 		rep += static_cast<char>(ch);
@@ -190,7 +207,8 @@ Token Lexer::read_number(int ch) {
 		value = value * 10 + digit;
 	}
 	if (ch != EOF) { std::cin.putback(ch); }
-	return Token { Token::Kind::integer_number, rep, value };
+	tok_ = Token { Token::Kind::integer_number, rep, value };
+	return tok_;
 }
 ```
 
@@ -204,17 +222,18 @@ static std::map<std::string, Token::Kind> keywords {
 	{ "RETURN", Token::Kind::RETURN }
 };
 
-Token Lexer::read_identifier_or_keyword(int ch) {
+const Token &Lexer::read_identifier_or_keyword(int ch) {
 	std::string rep { };
 	for (; ch != EOF && std::isalnum(ch); ch = std::cin.get()) {
 		rep += static_cast<char>(ch);
 	}
 	if (ch != EOF) { std::cin.putback(ch); }
 	auto got { keywords.find(rep) };
-	return Token {
+	tok_ = Token {
 		got != keywords.end() ? got->second : Token::Kind::identifier,
 		rep
 	};
+	return tok_;
 }
 ```
 
@@ -230,7 +249,247 @@ class Error: public std::exception {
 		std::string what_;
 	public:
 		Error(std::string what): what_ { what } { }
-		const char *what() const noexcept override { return what_.c_str(); }
+		const char *what() const noexcept override {
+			return what_.c_str();
+		}
 };
 
+```
+
+`lex.h`
+
+```c++
+// ...
+#include "tok.h"
+#include "err.h"
+// ...
+class Lexer {
+		// ...
+	public:
+		auto representation() const { return tok_.representation(); }
+		bool is(Token::Kind kind) const { return tok_.kind() == kind; }
+		void expect(Token::Kind kind) const {
+			if (! is(kind)) {
+				throw Error {
+				       "not expected " + tok_.representation()
+			       	};
+			}
+		}
+		const Token& consume(Token::Kind kind) {
+			expect(kind);
+			return advance();
+		}
+		auto int_value() const { return tok_.int_value(); }
+		// ...
+};
+```
+
+`decl.h`
+
+```c++
+#pragma once
+
+#include <memory>
+#include <string>
+
+class Declaration {
+	public:
+		using Ptr = std::shared_ptr<Declaration>;
+	private:
+		std::string name_;
+		Declaration::Ptr parent_;
+
+	protected:
+		Declaration(std::string name, Declaration::Ptr parent):
+			name_ { name }, parent_ { parent } { }
+	public:
+		virtual ~Declaration() { }
+		auto parent() const { return parent_; };
+		std::string mangle(std::string name);
+};
+```
+`decl.cpp`
+
+```c++
+#include "decl.h"
+
+std::string Declaration::mangle(std::string name) {
+	auto result { name_ + "_" + name };
+	return parent_ ? parent_->mangle(result) : result;
+}
+```
+
+`mod.h`
+
+```c++
+#pragma once
+
+#include "decl.h"
+#include "lex.h"
+
+class Module: public Declaration {
+	private:
+		Module(std::string name): Declaration { name, nullptr } { }
+	public:
+		using Ptr = std::shared_ptr<Module>;
+		static Module::Ptr parse(Lexer &l);
+};
+
+```
+
+`mod.cpp`
+
+```c++
+#include "mod.h"
+
+#include "proc.h"
+
+Module::Ptr Module::parse(Lexer &l) {
+	l.consume(Token::Kind::MODULE);
+	l.expect(Token::Kind::identifier);
+	auto module_name { l.representation() };
+	l.advance();
+	l.consume(Token::Kind::semicolon);
+	auto mod = Ptr { new Module(module_name) };
+	// imports
+	// types
+	// consts
+	// vars
+	while (l.is(Token::Kind::PROCEDURE)) {
+		Procedure::parse(l, mod);
+	}
+	Procedure::parse_init(l, mod);
+	l.consume(Token::Kind::END);
+	l.expect(Token::Kind::identifier);
+	if (l.representation() != module_name) {
+		throw Error {
+			"module name " + module_name +
+			" does not match END " + l.representation()
+	       	};
+	}
+	l.advance();
+	l.consume(Token::Kind::period);
+	return mod;
+}
+```
+
+`proc.h`
+
+```c++
+#pragma once
+
+#include "decl.h"
+#include "lex.h"
+#include "mod.h"
+
+#include <iostream>
+
+class Procedure: public Declaration {
+	public:
+		using Ptr = std::shared_ptr<Procedure>;
+	private:
+		Procedure(std::string name, std::string return_type, Module::Ptr module):
+			Declaration { name, module }
+		{
+			std::cout << "define " << return_type << " @" <<
+					module->mangle(name) << "() {\n"
+				"entry:\n";
+	       	}
+
+		static Procedure::Ptr create(
+			std::string name, std::string return_type,
+		       	Module::Ptr mod
+		);
+		static void parse_statements(Lexer &l, Procedure::Ptr p);
+	public:
+		static Procedure::Ptr parse(Lexer &l, Module::Ptr mod);
+		static Procedure::Ptr parse_init(Lexer &l, Module::Ptr mod);
+};
+```
+
+`proc.cpp`
+
+```c++
+#include "proc.h"
+
+Procedure::Ptr Procedure::create(
+	std::string name, std::string return_type, Module::Ptr mod
+) {
+	return Ptr { new Procedure { name, return_type, mod } };
+}
+
+void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
+	if (l.is(Token::Kind::BEGIN)) {
+		l.advance();
+		// statement sequence
+	}
+	if (l.is(Token::Kind::RETURN)) {
+		l.advance();
+		if (l.is(Token::Kind::integer_number)) {
+			std::cout << "\tret i32 " << l.int_value() << "\n";
+			l.advance();
+		} else { std::cout << "\tret void\n"; }
+	} else { std::cout << "\tret void\n"; }
+	std::cout << "}\n\n";
+}
+
+Procedure::Ptr Procedure::parse(Lexer &l, Module::Ptr mod) {
+	l.consume(Token::Kind::PROCEDURE);
+	l.expect(Token::Kind::identifier);
+	auto procedure_name { l.representation() };
+	l.advance();
+	if (l.is(Token::Kind::asterisk)) {
+		l.advance();
+	}
+	if (l.is(Token::Kind::left_parenthesis)) {
+		l.advance();
+		// parameter list
+		l.consume(Token::Kind::right_parenthesis);
+	}
+	std::string return_type;
+	if (l.is(Token::Kind::colon)) {
+		l.advance();
+		l.expect(Token::Kind::identifier);
+		if (l.representation() == "INTEGER") {
+			return_type = "i32";
+	       	} else { throw Error { "unknown return type " + l.representation() }; }
+		l.advance();
+	} else { return_type = "void"; }
+	auto proc { create(procedure_name, return_type, mod) };
+	l.consume(Token::Kind::semicolon);
+	parse_statements(l, proc);
+	l.consume(Token::Kind::END);
+	l.expect(Token::Kind::identifier);
+	if (l.representation() != procedure_name) {
+		throw Error {
+			"procedure name " + procedure_name +
+			" does not match END " + l.representation()
+		};
+	};
+	l.advance();
+	l.consume(Token::Kind::semicolon);
+	return proc;
+}
+
+Procedure::Ptr Procedure::parse_init(Lexer &l, Module::Ptr mod) {
+	auto proc { create("_init", "void", mod) };
+	parse_statements(l, proc);
+	return proc;
+}
+```
+
+`yaoc.cpp`
+
+```c++
+#include "lex.h"
+#include "mod.h"
+// ...
+	// write expected output
+	Lexer lx;
+	Module::parse(lx);
+	#if 0
+	// ...
+		"}\n";
+	#endif
+// ...
 ```
