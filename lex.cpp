@@ -1,4 +1,4 @@
-#line 152 "1_fn-gen.md"
+#line 154 "1_fn-gen.md"
 #include "lex.h"
 
 #include "err.h"
@@ -40,7 +40,7 @@ const Token &Lexer::advance() {
 	}
 	return tok_;
 }
-#line 197
+#line 199
 const Token &Lexer::read_number(int ch) {
 	std::string rep { }; int value { 0 };
 	for (; ch != EOF && std::isdigit(ch); ch = std::cin.get()) {
@@ -55,7 +55,7 @@ const Token &Lexer::read_number(int ch) {
 	tok_ = Token { Token::Kind::integer_number, rep, value };
 	return tok_;
 }
-#line 215
+#line 217
 static std::map<std::string, Token::Kind> keywords {
 	{ "BEGIN", Token::Kind::BEGIN },
 	{ "END", Token::Kind::END },

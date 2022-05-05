@@ -6,7 +6,7 @@ tests:
 
 include $(wildcard deps/*.dep)
 
-CXXFLAGS += -g -Wall -std=c++17
+CXXFLAGS += -g -Wall -std=c++17 -DTarget_Triple="\"`llvm-config --host-target`\""
 
 build/%.o: %.cpp
 	mkdir -p build deps

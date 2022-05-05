@@ -49,6 +49,8 @@ ist in guter TDD-Manier enttäuschend trivial:
 #include <iostream>
 
 int main() {
+	std::cout << "target triple = \"" Target_Triple "\"\n\n";
+
 	// write expected output
 	std::cout <<
 		"define i32 @FnTest_Answer() {\n"

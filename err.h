@@ -1,4 +1,4 @@
-#line 241 "1_fn-gen.md"
+#line 243 "1_fn-gen.md"
 #pragma once
 
 #include <stdexcept>
