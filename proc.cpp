@@ -1,4 +1,4 @@
-#line 618 "1_fn-gen.md"
+#line 642 "1_fn-gen.md"
 #include "proc.h"
 
 Procedure::Ptr Procedure::create(

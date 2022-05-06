@@ -13,14 +13,21 @@ Type::Ptr Type::create(
 }
 
 Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
-	if (! scope) { throw Error { "no scope for TYPE" }; }
-	auto name { l.representation() };
-	if (l.is(Token::Kind::identifier)) {
-		l.advance();
-		auto type { std::dynamic_pointer_cast<Type>(
-			scope->lookup(name))
-		};
-		if (type) { return type; }
+	for (;;) {
+		if (! scope) { throw Error { "no scope for TYPE" }; }
+		auto name { l.representation() };
+		if (l.is(Token::Kind::identifier)) {
+			l.advance();
+			auto got { scope->lookup(name) };
+			if (auto type { 
+				std::dynamic_pointer_cast<Type>(got) 
+			}) {
+				return type;
+			};
+			l.consume(Token::Kind::period);
+			scope = got;
+			continue;
+		}
+		throw Error { "no TYPE " + name };
 	}
-	throw Error { "no TYPE " + name };
 }

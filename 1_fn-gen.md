@@ -25,12 +25,12 @@ die von folgendem Programm `t_fn-test.cpp` aufgerufen werden kann:
 extern "C" int FnTest__init();
 extern "C" int FnTest_Answer();
 
-int main() {
+int main(int argc, const char *argv[]) {
 	FnTest__init();
 	constexpr int expected { 42 };
 	int got { FnTest_Answer() };
 	if (got == expected) {
-		std::cout << "fn-test: ok\n";
+		std::cout << argv[0] << ": ok\n";
 		return EXIT_SUCCESS;
 	} else {
 		std::cerr << "fn-test: FAILED: " <<
@@ -501,19 +501,43 @@ Type::Ptr Type::create(
 }
 
 Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
-	if (! scope) { throw Error { "no scope for TYPE" }; }
-	auto name { l.representation() };
-	if (l.is(Token::Kind::identifier)) {
-		l.advance();
-		auto type { std::dynamic_pointer_cast<Type>(
-			scope->lookup(name))
-		};
-		if (type) { return type; }
+	for (;;) {
+		if (! scope) { throw Error { "no scope for TYPE" }; }
+		auto name { l.representation() };
+		if (l.is(Token::Kind::identifier)) {
+			l.advance();
+			auto got { scope->lookup(name) };
+			if (auto type { 
+				std::dynamic_pointer_cast<Type>(got) 
+			}) {
+				return type;
+			};
+			l.consume(Token::Kind::period);
+			scope = got;
+			continue;
+		}
+		throw Error { "no TYPE " + name };
 	}
-	throw Error { "no TYPE " + name };
 }
 ```
 
+Hier findet ein wenig zusätzliche Magie statt: wenn der Bezeichner kein
+Typ ist, so kann es sich vielleicht um ein Modul halten, in dem ein Typ
+beschrieben wird. So kann anstatt des Bezeichners `INTEGER` auch
+`SYSTEM.INTEGER` verwendet werden.
+
+Dies sehen wir im Modul `FnTest2.mod`, das ebenfalls kompiliert und
+ausgeführt werden soll:
+
+
+```Modula-2
+MODULE FnTest;
+	PROCEDURE Answer*(): SYSTEM.INTEGER;
+	BEGIN
+		RETURN 42
+	END Answer;
+END FnTest.
+```
 ## Deklarationen mit Kindern
 
 `scope.h`
@@ -783,8 +807,11 @@ Module::Ptr create_SYSTEM();
 #include "type.h"
 
 Module::Ptr create_SYSTEM() {
-	auto sys { Module::create("SYSTEM", nullptr) };
+	static Module::Ptr sys;
+	if (sys) { return sys; }
+	sys = Module::create("SYSTEM", nullptr);
 	Type::create("INTEGER", sys, "i32");
+	sys->insert(sys);
 	return sys;
 }
 ```
