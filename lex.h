@@ -1,17 +1,17 @@
-#line 178 "1_fn-gen.md"
+#line 194 "1_fn-gen.md"
 #pragma once
 
 #include "tok.h"
-#line 307
+#line 323
 #include "err.h"
-#line 181
+#line 197
 
 class Lexer {
 		Token tok_;
 		const Token &read_number(int ch);
 		const Token &read_identifier_or_keyword(int ch);
 	public:
-#line 312
+#line 328
 		auto representation() const { return tok_.representation(); }
 		bool is(Token::Kind kind) const { return tok_.kind() == kind; }
 		void expect(Token::Kind kind) const {
@@ -26,7 +26,7 @@ class Lexer {
 			return advance();
 		}
 		auto int_value() const { return tok_.int_value(); }
-#line 187
+#line 203
 		const Token &advance();
 		Lexer():
 			tok_ { Token::Kind::end_of_input, "" }

@@ -1,4 +1,4 @@
-#line 20 "1_fn-gen.md"
+#line 23 "1_fn-gen.md"
 #include <iostream>
 
 extern "C" int FnTest__init();

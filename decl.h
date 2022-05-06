@@ -1,4 +1,4 @@
-#line 341 "1_fn-gen.md"
+#line 359 "1_fn-gen.md"
 #pragma once
 
 #include <memory>
@@ -23,7 +23,7 @@ class Declaration {
 		virtual Declaration::Ptr lookup(std::string name);
 		virtual void insert(Declaration::Ptr decl);
 };
-#line 372
+#line 390
 inline std::string Declaration::name(Declaration::Ptr d) {
 	return d ? d->name() : "NIL";
 }

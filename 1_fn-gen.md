@@ -13,6 +13,9 @@ MODULE FnTest;
 END FnTest.
 ```
 
+
+## Test-Szenario
+
 Die Erwartung ist, dass der IR-Code die Funktion `FnTest_Answer` exportiert,
 die von folgendem Programm `t_fn-test.cpp` aufgerufen werden kann:
 
@@ -41,6 +44,9 @@ Die Funktion `FnTest__init()` initialisiert das Modul. Die eigentliche
 Name der Funktion wird aus dem Modul-Namen und Funktionsnamen zu
 `FnTest_Answer` zusammengesetzt. Da Oberon `_` in Bezeichnern nicht erlaubt
 (C/C++ aber schon), kann der Unterstrich als Separator verwendet werden.
+
+
+## Schneller Mock
 
 Jetzt geht es also um die Implementierung von `yaoc.cpp`. Der erste Wurf
 ist in guter TDD-Manier enttäuschend trivial:
@@ -74,6 +80,9 @@ clang++ t_fn-test.cpp FnTest.ll -o t_fn-test
 ./t_fn-test
 ```
 
+
+## Target-Triple
+
 Die `target`-Zeile ist etwas komisch.
 Eigentlich sollte der generierte Code plattform-neutral sein.
 LLVM erwartet jedoch trotzdem eine Plattform-Angabe.
@@ -91,6 +100,9 @@ So kann auf Low-Level Code im eigentlichen Compiler verzichtet werden.
 Der generierte Code ist für die gleiche Plattform, für die der Compiler
 gebaut wurde. Zusätzlich erledigt das [Makefile](./Makefile) auch das
 Bauen und Ausführen der Test-Anwendungen.
+
+
+## Fehler-Behandlung
 
 Die Fehler-Behandlung findet rudimentär in `err.h` statt.
 Es gibt einen Exception, die den aktuellen Fehler beschreibt.
@@ -112,6 +124,8 @@ class Error: public std::exception {
 };
 
 ```
+
+## Tokenizer
 
 Wir können jetzt anfangen die Eingabe zu lesen. Die Eingabe wird in Blöcke
 (sogenannte Token) zerlegt. Es gibt folgende Arten von Tokens:
@@ -170,6 +184,8 @@ inline Token::Token(Kind kind, std::string representation, int int_value):
 	}
 }
 ```
+
+## Lexer
 
 Zusätzlich gibt es einen `Lexer` in `lex.h`, der die Standard-Eingabe
 in Token umwandelt:
@@ -327,6 +343,8 @@ class Lexer {
 };
 ```
 
+# Deklarationen
+
 Jetzt betrachten wir Deklaration in `decl.h`. Eine Deklaration hat zwei
 Eigenschaften:
 
@@ -417,6 +435,9 @@ Vorgestellt werden die Deklarationen in umgekehrter Reihenfolge.
 Dies liegt daran, dass `Procedure` `Type` benötigt (für den Rückgabewert)
 und `Module` `Procedure`n enthält.
 
+
+## Typen
+
 Beginnen wir mit `Type` in `type.h`: Die Klasse hat neben dem Namen
 eine IR-Repräsentation:
 
@@ -492,6 +513,53 @@ Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
 	throw Error { "no TYPE " + name };
 }
 ```
+
+## Deklarationen mit Kindern
+
+`scope.h`
+
+```c++
+#pragma once
+
+#include "decl.h"
+
+#include <map>
+
+class Scoping: public Declaration {
+		std::map<std::string, Declaration::Ptr> entries_;
+	protected:
+		Scoping(std::string name, Declaration::Ptr parent):
+			Declaration { name, parent }
+	       	{ }
+	public:
+		Declaration::Ptr lookup(std::string name) override;
+		void insert(Declaration::Ptr decl) override;
+};
+```
+
+`scope.cpp`
+
+```c++
+#include "scope.h"
+
+#include "err.h"
+
+Declaration::Ptr Scoping::lookup(std::string name) {
+	auto got { entries_.find(name) };
+	if (got != entries_.end()) { return got->second; }
+	if (parent()) { return (parent())->lookup(name); }
+	return nullptr;
+}
+
+void Scoping::insert(Declaration::Ptr decl) {
+	auto res { entries_.insert({ decl->name(), decl }) };
+	if (! res.second) {
+		throw Error { "Element " + decl->name() + " inserted twice" };
+	}
+}
+```
+
+## Prozeduren
 
 `proc.h`
 
@@ -615,48 +683,7 @@ Procedure::Ptr Procedure::parse_init(Lexer &l, Declaration::Ptr parent) {
 }
 ```
 
-`scope.h`
-
-```c++
-#pragma once
-
-#include "decl.h"
-
-#include <map>
-
-class Scoping: public Declaration {
-		std::map<std::string, Declaration::Ptr> entries_;
-	protected:
-		Scoping(std::string name, Declaration::Ptr parent):
-			Declaration { name, parent }
-	       	{ }
-	public:
-		Declaration::Ptr lookup(std::string name) override;
-		void insert(Declaration::Ptr decl) override;
-};
-```
-
-`scope.cpp`
-
-```c++
-#include "scope.h"
-
-#include "err.h"
-
-Declaration::Ptr Scoping::lookup(std::string name) {
-	auto got { entries_.find(name) };
-	if (got != entries_.end()) { return got->second; }
-	if (parent()) { return (parent())->lookup(name); }
-	return nullptr;
-}
-
-void Scoping::insert(Declaration::Ptr decl) {
-	auto res { entries_.insert({ decl->name(), decl }) };
-	if (! res.second) {
-		throw Error { "Element " + decl->name() + " inserted twice" };
-	}
-}
-```
+## Module
 
 `mod.h`
 
@@ -725,6 +752,8 @@ std::string Module::mangle(std::string name) {
 
 ```
 
+## Das `SYSTEM`-Modul
+
 `sys.h`
 
 ```c++
@@ -748,6 +777,9 @@ Module::Ptr create_SYSTEM() {
 	return sys;
 }
 ```
+
+
+# Alles zusammensetzen
 
 `yaoc.cpp`
 

@@ -1,4 +1,4 @@
-#line 741 "1_fn-gen.md"
+#line 770 "1_fn-gen.md"
 #include "sys.h"
 
 #include "type.h"
