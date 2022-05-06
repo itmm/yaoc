@@ -106,7 +106,7 @@ Bauen und Ausführen der Test-Anwendungen.
 
 Die Fehler-Behandlung findet rudimentär in `err.h` statt.
 Es gibt einen Exception, die den aktuellen Fehler beschreibt.
-Das Programm wird beim ersten Fehler beenndet.
+Das Programm wird beim ersten Fehler beendet.
 
 ```c++
 #pragma once
@@ -141,6 +141,12 @@ Wir können jetzt anfangen die Eingabe zu lesen. Die Eingabe wird in Blöcke
   * zum Beispiel: `42`
 * Kontrollzeichen
   * `(`, `)`, `*`, `.`, `:`, `;`
+
+Namen von Typen (wie `INTEGER`) sind keine reservierten Schlüsselwörter,
+sondern normale Bezeichner. Die Typen sind im Basis-Modul `SYSTEM` definiert,
+das automatisch eingebunden wird.
+Andere Module können diese Bezeichner auch anders definieren (was jedoch nicht
+zu empfehlen ist).
 
 Zwischen einzelnen Tokens können Leerzeichen und Zeilenumbrüche stehen. Diese
 sind notwendig, um Bezeichner, Zahlen und Schlüsselwörter voneinander zu trennen
@@ -330,8 +336,8 @@ class Lexer {
 		void expect(Token::Kind kind) const {
 			if (! is(kind)) {
 				throw Error {
-				       "not expected " + tok_.representation()
-			       	};
+					"not expected " + tok_.representation()
+				};
 			}
 		}
 		const Token& consume(Token::Kind kind) {
@@ -369,7 +375,7 @@ class Declaration {
 	protected:
 		Declaration(std::string name, Declaration::Ptr parent):
 			name_ { name }, parent_ { parent }
-	       	{ }
+		{ }
 	public:
 		virtual ~Declaration() { }
 		auto name() const { return name_; }
@@ -473,8 +479,8 @@ Declaration::Ptr parse_qualified_ident(Lexer &l, Declaration::Ptr scope) {
 			auto got { mod->lookup(name) };
 			if (! got) {
 				throw Error {
-				       	name + " not found in " + mod->name()
-			       	};
+					name + " not found in " + mod->name()
+				};
 			}
 			return got;
 		}
@@ -500,7 +506,7 @@ class Type: public Declaration {
 		std::string ir_representation_;
 		Type(
 			std::string name, Declaration::Ptr parent,
-		       	std::string ir_representation
+			std::string ir_representation
 		):
 			Declaration { name, parent },
 			ir_representation_ { ir_representation }
@@ -509,7 +515,7 @@ class Type: public Declaration {
 		using Ptr = std::shared_ptr<Type>;
 		static Ptr create(
 			std::string name, Declaration::Ptr parent,
-		       	std::string ir_representation
+			std::string ir_representation
 		);
 		static Ptr parse(Lexer &l, Declaration::Ptr scope);
 		auto ir_representation() const { return ir_representation_; }
@@ -591,7 +597,7 @@ class Scoping: public Declaration {
 	protected:
 		Scoping(std::string name, Declaration::Ptr parent):
 			Declaration { name, parent }
-	       	{ }
+		{ }
 	public:
 		Declaration::Ptr lookup(std::string name) override;
 		void insert(Declaration::Ptr decl) override;
@@ -650,13 +656,13 @@ class Procedure: public Scoping {
 
 		Procedure(
 			std::string name, bool exported,
-		       	Type::Ptr return_type, Declaration::Ptr parent
+			Type::Ptr return_type, Declaration::Ptr parent
 		);
 		static void parse_statements(Lexer &l, Procedure::Ptr p);
 	protected:
 		static Procedure::Ptr create(
 			std::string name, bool exported, Type::Ptr return_type,
-		       	Declaration::Ptr parent
+			Declaration::Ptr parent
 		);
 	public:
 		static Procedure::Ptr parse(Lexer &l, Declaration::Ptr parent);
@@ -756,8 +762,8 @@ Procedure::Procedure(
 	return_type_ { return_type }
 {
 	if (! exported_) {
-	       	throw Error { "only exported PROCEDUREs are supported yet" };
-       	}
+		throw Error { "only exported PROCEDUREs are supported yet" };
+	}
 	std::cout << "define " << Type::ir_representation(return_type) <<
 			" @" << parent->mangle(name) << "() {\n"
 		"entry:\n";
@@ -779,7 +785,7 @@ class Module: public Scoping {
 	private:
 		Module(std::string name, Declaration::Ptr parent):
 			Scoping { name, parent }
-	       	{ }
+		{ }
 	public:
 		using Ptr = std::shared_ptr<Module>;
 		static Module::Ptr create(
@@ -825,7 +831,7 @@ Module::Ptr Module::parse(Lexer &l, Declaration::Ptr parent) {
 		throw Error {
 			"module name " + module_name +
 			" does not match END " + l.representation()
-	       	};
+		};
 	}
 	l.advance();
 	l.consume(Token::Kind::period);

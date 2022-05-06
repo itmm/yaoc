@@ -1,4 +1,4 @@
-#line 674 "1_fn-gen.md"
+#line 680 "1_fn-gen.md"
 #include "proc.h"
 
 Procedure::Ptr Procedure::create(
@@ -72,7 +72,7 @@ Procedure::Ptr Procedure::parse_init(Lexer &l, Declaration::Ptr parent) {
 	parse_statements(l, proc);
 	return proc;
 }
-#line 751
+#line 757
 Procedure::Procedure(
 	std::string name, bool exported,
 	Type::Ptr return_type, Declaration::Ptr parent
@@ -81,8 +81,8 @@ Procedure::Procedure(
 	return_type_ { return_type }
 {
 	if (! exported_) {
-	       	throw Error { "only exported PROCEDUREs are supported yet" };
-       	}
+		throw Error { "only exported PROCEDUREs are supported yet" };
+	}
 	std::cout << "define " << Type::ir_representation(return_type) <<
 			" @" << parent->mangle(name) << "() {\n"
 		"entry:\n";

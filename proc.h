@@ -1,4 +1,4 @@
-#line 635 "1_fn-gen.md"
+#line 641 "1_fn-gen.md"
 #pragma once
 
 #include "lex.h"
@@ -17,13 +17,13 @@ class Procedure: public Scoping {
 
 		Procedure(
 			std::string name, bool exported,
-		       	Type::Ptr return_type, Declaration::Ptr parent
+			Type::Ptr return_type, Declaration::Ptr parent
 		);
 		static void parse_statements(Lexer &l, Procedure::Ptr p);
 	protected:
 		static Procedure::Ptr create(
 			std::string name, bool exported, Type::Ptr return_type,
-		       	Declaration::Ptr parent
+			Declaration::Ptr parent
 		);
 	public:
 		static Procedure::Ptr parse(Lexer &l, Declaration::Ptr parent);

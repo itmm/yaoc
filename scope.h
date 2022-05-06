@@ -1,4 +1,4 @@
-#line 583 "1_fn-gen.md"
+#line 589 "1_fn-gen.md"
 #pragma once
 
 #include "decl.h"
@@ -10,7 +10,7 @@ class Scoping: public Declaration {
 	protected:
 		Scoping(std::string name, Declaration::Ptr parent):
 			Declaration { name, parent }
-	       	{ }
+		{ }
 	public:
 		Declaration::Ptr lookup(std::string name) override;
 		void insert(Declaration::Ptr decl) override;

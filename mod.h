@@ -1,4 +1,4 @@
-#line 773 "1_fn-gen.md"
+#line 779 "1_fn-gen.md"
 #pragma once
 
 #include "scope.h"
@@ -8,7 +8,7 @@ class Module: public Scoping {
 	private:
 		Module(std::string name, Declaration::Ptr parent):
 			Scoping { name, parent }
-	       	{ }
+		{ }
 	public:
 		using Ptr = std::shared_ptr<Module>;
 		static Module::Ptr create(

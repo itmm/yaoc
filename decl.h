@@ -1,4 +1,4 @@
-#line 359 "1_fn-gen.md"
+#line 365 "1_fn-gen.md"
 #pragma once
 
 #include <memory>
@@ -12,7 +12,7 @@ class Declaration {
 	protected:
 		Declaration(std::string name, Declaration::Ptr parent):
 			name_ { name }, parent_ { parent }
-	       	{ }
+		{ }
 	public:
 		virtual ~Declaration() { }
 		auto name() const { return name_; }
@@ -23,7 +23,7 @@ class Declaration {
 		virtual Declaration::Ptr lookup(std::string name);
 		virtual void insert(Declaration::Ptr decl);
 };
-#line 390
+#line 396
 inline std::string Declaration::name(Declaration::Ptr d) {
 	return d ? d->name() : "NIL";
 }

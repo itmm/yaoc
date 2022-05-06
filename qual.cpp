@@ -1,4 +1,4 @@
-#line 457 "1_fn-gen.md"
+#line 463 "1_fn-gen.md"
 #include "qual.h"
 #include "mod.h"
 
@@ -18,8 +18,8 @@ Declaration::Ptr parse_qualified_ident(Lexer &l, Declaration::Ptr scope) {
 			auto got { mod->lookup(name) };
 			if (! got) {
 				throw Error {
-				       	name + " not found in " + mod->name()
-			       	};
+					name + " not found in " + mod->name()
+				};
 			}
 			return got;
 		}
