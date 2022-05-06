@@ -110,7 +110,7 @@ class Token {
 			end_of_input, identifier, integer_number,
 			left_parenthesis, right_parenthesis, asterisk,
 			period, colon, semicolon,
-			BEGIN, END, MODULE, PROCEDURE, RETURN
+			BEGIN, END, MODULE, PROCEDURE, RETURN, VAR
 		};
 	private:
 		Kind kind_;
@@ -219,7 +219,8 @@ static std::map<std::string, Token::Kind> keywords {
 	{ "END", Token::Kind::END },
 	{ "MODULE", Token::Kind::MODULE },
 	{ "PROCEDURE", Token::Kind::PROCEDURE },
-	{ "RETURN", Token::Kind::RETURN }
+	{ "RETURN", Token::Kind::RETURN },
+	{ "VAR", Token::Kind::VAR }
 };
 
 const Token &Lexer::read_identifier_or_keyword(int ch) {
@@ -386,6 +387,50 @@ Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
 		if (type) { return type; }
 	}
 	throw Error { "no type " + name };
+}
+```
+
+`var.h`
+
+```c++
+#pragma once
+
+#include "decl.h"
+#include "type.h"
+
+#include <vector>
+
+class Variable: public Declaration {
+		Type::Ptr type_;
+		bool exported_;
+		bool var_;
+		Variable(
+			std::string name, Declaration::Ptr parent,
+		       	Type::Ptr type, bool exported, bool var
+		): Declaration { name, parent }, type_ { type }, exported_ { exported }, var_ { var } { }
+	public:
+		static Ptr create(
+			std::string name, Declaration::Ptr parent,
+			Type::Ptr type, bool exported, bool var
+		);
+};
+```
+
+`var.cpp`
+
+```c++
+#include "var.h"
+
+#include "err.h"
+
+Variable::Ptr Variable::create(
+	std::string name, Declaration::Ptr parent, Type::Ptr type,
+	bool exported, bool var
+) {
+	if (! parent) { throw Error { "no parent for variable" }; }
+	auto result { Ptr { new Variable { name, parent, type, exported, var } } };
+	parent->insert(result);
+	return result;
 }
 ```
 

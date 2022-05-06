@@ -61,8 +61,7 @@ static std::map<std::string, Token::Kind> keywords {
 	{ "END", Token::Kind::END },
 	{ "MODULE", Token::Kind::MODULE },
 	{ "PROCEDURE", Token::Kind::PROCEDURE },
-	{ "RETURN", Token::Kind::RETURN },
-	{ "VAR", Token::Kind::VAR }
+	{ "RETURN", Token::Kind::RETURN }
 };
 
 const Token &Lexer::read_identifier_or_keyword(int ch) {

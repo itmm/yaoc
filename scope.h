@@ -1,4 +1,4 @@
-#line 545 "1_fn-gen.md"
+#line 500 "1_fn-gen.md"
 #pragma once
 
 #include "decl.h"

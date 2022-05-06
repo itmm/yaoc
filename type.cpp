@@ -1,4 +1,4 @@
-#line 367 "1_fn-gen.md"
+#line 366 "1_fn-gen.md"
 #include "type.h"
 
 #include "err.h"
