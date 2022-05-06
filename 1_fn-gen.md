@@ -405,8 +405,15 @@ class Procedure: public Declaration {
 	public:
 		using Ptr = std::shared_ptr<Procedure>;
 	private:
-		Procedure(std::string name, Type::Ptr return_type, Declaration::Ptr parent):
-			Declaration { name, parent }
+		bool exported_;
+		Type::Ptr return_type_;
+
+		Procedure(
+			std::string name, bool exported,
+		       	Type::Ptr return_type, Declaration::Ptr parent
+		):
+			Declaration { name, parent }, exported_ { exported },
+			return_type_ { return_type }
 		{
 			std::cout << "define " << (return_type ? return_type->ir_name() : "void") << " @" <<
 					parent->mangle(name) << "() {\n"
@@ -414,13 +421,15 @@ class Procedure: public Declaration {
 	       	}
 
 		static Procedure::Ptr create(
-			std::string name, Type::Ptr return_type,
+			std::string name, bool exported, Type::Ptr return_type,
 		       	Declaration::Ptr parent
 		);
 		static void parse_statements(Lexer &l, Procedure::Ptr p);
 	public:
 		static Procedure::Ptr parse(Lexer &l, Declaration::Ptr parent);
 		static Procedure::Ptr parse_init(Lexer &l, Declaration::Ptr parent);
+		auto exported() const { return exported_; }
+		auto return_type() const { return return_type_; }
 };
 ```
 
@@ -430,10 +439,13 @@ class Procedure: public Declaration {
 #include "proc.h"
 
 Procedure::Ptr Procedure::create(
-	std::string name, Type::Ptr return_type, Declaration::Ptr parent
+	std::string name, bool exported, Type::Ptr return_type,
+       	Declaration::Ptr parent
 ) {
 	if (! parent) { throw Error { "no parent for procedure" }; }
-	auto result { Ptr { new Procedure { name, return_type, parent } } };
+	auto result { Ptr { new Procedure {
+		name, exported, return_type, parent
+       	} } };
 	parent->insert(result);
 	return result;
 }
@@ -454,11 +466,16 @@ void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
 }
 
 Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
+	auto module { std::dynamic_pointer_cast<Module>(parent) };
 	l.consume(Token::Kind::PROCEDURE);
 	l.expect(Token::Kind::identifier);
 	auto procedure_name { l.representation() };
 	l.advance();
+	bool exported { false };
 	if (l.is(Token::Kind::asterisk)) {
+		if (module) {
+			exported = true;
+		} else { throw Error { "cannot export " + procedure_name }; }
 		l.advance();
 	}
 	if (l.is(Token::Kind::left_parenthesis)) {
@@ -471,7 +488,7 @@ Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 		l.advance();
 		return_type = Type::parse(l, parent);
 	} else { return_type = nullptr; }
-	auto proc { create(procedure_name, return_type, parent) };
+	auto proc { create(procedure_name, exported, return_type, parent) };
 	l.consume(Token::Kind::semicolon);
 	parse_statements(l, proc);
 	l.consume(Token::Kind::END);
@@ -488,7 +505,7 @@ Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 }
 
 Procedure::Ptr Procedure::parse_init(Lexer &l, Declaration::Ptr parent) {
-	auto proc { create("_init", nullptr, parent) };
+	auto proc { create("_init", true, nullptr, parent) };
 	parse_statements(l, proc);
 	return proc;
 }
