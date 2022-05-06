@@ -1,4 +1,4 @@
-#line 670 "1_fn-gen.md"
+#line 672 "1_fn-gen.md"
 #pragma once
 
 #include "mod.h"

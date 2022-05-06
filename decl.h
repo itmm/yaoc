@@ -9,7 +9,7 @@ class Declaration {
 		using Ptr = std::shared_ptr<Declaration>;
 	private:
 		std::string name_;
-		Declaration::Ptr parent_;
+		std::weak_ptr<Declaration> parent_;
 
 	protected:
 		Declaration(std::string name, Declaration::Ptr parent):
@@ -18,9 +18,10 @@ class Declaration {
 	public:
 		virtual ~Declaration() { }
 		auto name() const { return name_; }
-		auto parent() const { return parent_; };
+		Declaration::Ptr parent() const { return parent_.lock(); };
 		virtual std::string mangle(std::string name);
 		virtual bool has(std::string name) { return false; }
 		virtual Declaration::Ptr lookup(std::string name);
 		virtual void insert(Declaration::Ptr decl);
 };
+

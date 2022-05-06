@@ -1,11 +1,12 @@
-#line 362 "1_fn-gen.md"
+#line 363 "1_fn-gen.md"
 #include "decl.h"
 
 #include "err.h"
 
 std::string Declaration::mangle(std::string name) {
 	auto result { name_ + "_" + name };
-	return parent_ ? parent_->mangle(result) : result;
+	auto p { parent() };
+	return p ? p->mangle(result) : result;
 }
 
 Declaration::Ptr Declaration::lookup(std::string name) {
