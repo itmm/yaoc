@@ -1,4 +1,4 @@
-#line 722 "1_fn-gen.md"
+#line 773 "1_fn-gen.md"
 #pragma once
 
 #include "scope.h"

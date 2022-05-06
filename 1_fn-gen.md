@@ -435,6 +435,55 @@ Vorgestellt werden die Deklarationen in umgekehrter Reihenfolge.
 Dies liegt daran, dass `Procedure` `Type` benötigt (für den Rückgabewert)
 und `Module` `Procedure`n enthält.
 
+Vorher gibt es noch eine Funktion in `qual.h`, um qualifizierte Identifier zu
+parsen:
+
+```c++
+#pragma once
+
+#include "decl.h"
+#include "lex.h"
+
+Declaration::Ptr parse_qualified_ident(Lexer &l, Declaration::Ptr scope);
+```
+
+Die Idee ist, dass es sich hierbei um einen Bezeichner handelt, der ein Kind
+von `scope` ist.
+Wenn dies ein Modul ist und ein `.` folgt, wird statt dessen die Deklaration
+zum Bezeichner in diesem Modul zurückgeliefert.
+Dies ist in `qual.cpp` umgesetzt:
+
+```c++
+#include "qual.h"
+#include "mod.h"
+
+Declaration::Ptr parse_qualified_ident(Lexer &l, Declaration::Ptr scope) {
+	if (! scope) { throw Error { "NIL scope in parse_qualified" }; }
+	l.expect(Token::Kind::identifier);
+	auto name { l.representation() };
+	l.advance();
+	auto got { scope->lookup(name) };
+	if (! got) { throw Error { name + " not found" }; }
+	if (auto mod { std::dynamic_pointer_cast<Module>(got) }) {
+		if (l.is(Token::Kind::period)) {
+			l.advance();
+			l.expect(Token::Kind::identifier);
+			auto name { l.representation() };
+			l.advance();
+			auto got { mod->lookup(name) };
+			if (! got) {
+				throw Error {
+				       	name + " not found in " + mod->name()
+			       	};
+			}
+			return got;
+		}
+	}
+	return got;
+}
+```
+
+
 
 ## Typen
 
@@ -490,6 +539,7 @@ zum Suchen eines Bezeichners zurückgegriffen.
 #include "type.h"
 
 #include "err.h"
+#include "qual.h"
 
 Type::Ptr Type::create(
 	std::string name, Declaration::Ptr parent, std::string ir_name
@@ -501,29 +551,15 @@ Type::Ptr Type::create(
 }
 
 Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
-	for (;;) {
-		if (! scope) { throw Error { "no scope for TYPE" }; }
-		auto name { l.representation() };
-		if (l.is(Token::Kind::identifier)) {
-			l.advance();
-			auto got { scope->lookup(name) };
-			if (auto type { 
-				std::dynamic_pointer_cast<Type>(got) 
-			}) {
-				return type;
-			};
-			l.consume(Token::Kind::period);
-			scope = got;
-			continue;
-		}
-		throw Error { "no TYPE " + name };
-	}
+	auto got  { parse_qualified_ident(l, scope) };
+	auto t { std::dynamic_pointer_cast<Type>(got) };
+	if (! t) { throw Error { Declaration::name(got) + " is no TYPE" }; }
+	return t;
 }
 ```
 
-Hier findet ein wenig zusätzliche Magie statt: wenn der Bezeichner kein
-Typ ist, so kann es sich vielleicht um ein Modul halten, in dem ein Typ
-beschrieben wird. So kann anstatt des Bezeichners `INTEGER` auch
+Mit dem `parse_qualified_ident` ist es möglich, den Modul-Namen bei Bezeichnern
+mit anzugeben.  So kann anstatt des Bezeichners `INTEGER` auch
 `SYSTEM.INTEGER` verwendet werden.
 
 Dies sehen wir im Modul `FnTest2.mod`, das ebenfalls kompiliert und
@@ -540,7 +576,8 @@ END FnTest.
 ```
 ## Deklarationen mit Kindern
 
-`scope.h`
+Bevor wir Prozeduren und Module parsen, kommt in `scope.h` ein Sub-Typ
+von Declaration, um eine beliebige Anzahl von Kindern zu verwalten:
 
 ```c++
 #pragma once
@@ -561,7 +598,11 @@ class Scoping: public Declaration {
 };
 ```
 
-`scope.cpp`
+In `scope.cpp` steht die passende Umsetzung.
+Interessant ist nur, dass bei `lookup` im `parent` weitergesucht wird,
+wenn kein Eintrag in der aktuellen Instanz gefunden wurde.
+Auch ist es nicht erlaubt, in den gleichen `scope` mehrere Deklarationen
+mit dem gleichen Namen einzufügen.
 
 ```c++
 #include "scope.h"
@@ -585,7 +626,10 @@ void Scoping::insert(Declaration::Ptr decl) {
 
 ## Prozeduren
 
-`proc.h`
+Nach dieser ganzen Vorarbeit sollte es endlich möglich sein, Prozeduren in
+`proc.h` zu definieren und zu parsen.
+Jede Prozedur hat einen Rückgabe-Typ und einen Indikator, ob sie exportiert
+werden soll oder nicht.
 
 ```c++
 #pragma once
@@ -622,18 +666,6 @@ class Procedure: public Scoping {
 		auto exported() const { return exported_; }
 		auto return_type() const { return return_type_; }
 };
-
-inline Procedure::Procedure(
-	std::string name, bool exported,
-	Type::Ptr return_type, Declaration::Ptr parent
-):
-	Scoping { name, parent }, exported_ { exported },
-	return_type_ { return_type }
-{
-	std::cout << "define " << Type::ir_representation(return_type) <<
-			" @" << parent->mangle(name) << "() {\n"
-		"entry:\n";
-}
 ```
 
 `proc.cpp`
@@ -713,6 +745,25 @@ Procedure::Ptr Procedure::parse_init(Lexer &l, Declaration::Ptr parent) {
 	return proc;
 }
 ```
+
+```c++
+// ...
+Procedure::Procedure(
+	std::string name, bool exported,
+	Type::Ptr return_type, Declaration::Ptr parent
+):
+	Scoping { name, parent }, exported_ { exported },
+	return_type_ { return_type }
+{
+	if (! exported_) {
+	       	throw Error { "only exported PROCEDUREs are supported yet" };
+       	}
+	std::cout << "define " << Type::ir_representation(return_type) <<
+			" @" << parent->mangle(name) << "() {\n"
+		"entry:\n";
+}
+```
+
 
 ## Module
 

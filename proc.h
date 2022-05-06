@@ -1,4 +1,4 @@
-#line 591 "1_fn-gen.md"
+#line 635 "1_fn-gen.md"
 #pragma once
 
 #include "lex.h"
@@ -33,15 +33,3 @@ class Procedure: public Scoping {
 		auto exported() const { return exported_; }
 		auto return_type() const { return return_type_; }
 };
-
-inline Procedure::Procedure(
-	std::string name, bool exported,
-	Type::Ptr return_type, Declaration::Ptr parent
-):
-	Scoping { name, parent }, exported_ { exported },
-	return_type_ { return_type }
-{
-	std::cout << "define " << Type::ir_representation(return_type) <<
-			" @" << parent->mangle(name) << "() {\n"
-		"entry:\n";
-}
