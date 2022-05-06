@@ -1,14 +1,14 @@
 #line 567 "1_fn-gen.md"
 #pragma once
 
-#include "decl.h"
 #include "lex.h"
 #include "mod.h"
+#include "scope.h"
 #include "type.h"
 
 #include <iostream>
 
-class Procedure: public Declaration {
+class Procedure: public Scoping {
 	public:
 		using Ptr = std::shared_ptr<Procedure>;
 	private:
@@ -18,23 +18,30 @@ class Procedure: public Declaration {
 		Procedure(
 			std::string name, bool exported,
 		       	Type::Ptr return_type, Declaration::Ptr parent
-		):
-			Declaration { name, parent }, exported_ { exported },
-			return_type_ { return_type }
-		{
-			std::cout << "define " << Type::ir_representation(return_type) << " @" <<
-					parent->mangle(name) << "() {\n"
-				"entry:\n";
-	       	}
-
+		);
+		static void parse_statements(Lexer &l, Procedure::Ptr p);
+	protected:
 		static Procedure::Ptr create(
 			std::string name, bool exported, Type::Ptr return_type,
 		       	Declaration::Ptr parent
 		);
-		static void parse_statements(Lexer &l, Procedure::Ptr p);
 	public:
 		static Procedure::Ptr parse(Lexer &l, Declaration::Ptr parent);
-		static Procedure::Ptr parse_init(Lexer &l, Declaration::Ptr parent);
+		static Procedure::Ptr parse_init(
+			Lexer &l, Declaration::Ptr parent
+		);
 		auto exported() const { return exported_; }
 		auto return_type() const { return return_type_; }
 };
+
+inline Procedure::Procedure(
+	std::string name, bool exported,
+	Type::Ptr return_type, Declaration::Ptr parent
+):
+	Scoping { name, parent }, exported_ { exported },
+	return_type_ { return_type }
+{
+	std::cout << "define " << Type::ir_representation(return_type) <<
+			" @" << parent->mangle(name) << "() {\n"
+		"entry:\n";
+}
