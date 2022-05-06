@@ -1,4 +1,4 @@
-#line 625 "1_fn-gen.md"
+#line 684 "1_fn-gen.md"
 #include "mod.h"
 
 #include "proc.h"

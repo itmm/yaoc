@@ -1,4 +1,4 @@
-#line 363 "1_fn-gen.md"
+#line 387 "1_fn-gen.md"
 #include "decl.h"
 
 #include "err.h"
@@ -14,5 +14,5 @@ Declaration::Ptr Declaration::lookup(std::string name) {
 }
 
 void Declaration::insert(Declaration::Ptr decl) {
-	throw Error { "cannot insert " + (decl ? decl->name() : std::string { "NIL" }) };
+	throw Error { "cannot insert " + Declaration::name(decl) };
 }

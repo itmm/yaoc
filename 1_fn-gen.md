@@ -327,7 +327,15 @@ class Lexer {
 };
 ```
 
-`decl.h`
+Jetzt betrachten wir Deklaration in `decl.h`. Eine Deklaration hat zwei
+Eigenschaften:
+
+1. Sie hat einen Namen
+2. Sie kann Kind von anderen Deklarationen sein.
+
+Dabei kann nicht jede Deklaration Kinder haben. Daher wird dies in der
+hier betrachteten Basis-Klasse nicht implementiert.
+Wenn versucht wird, darauf zuzugreifen, werden Fehler generiert
 
 ```c++
 #pragma once
@@ -336,12 +344,10 @@ class Lexer {
 #include <string>
 
 class Declaration {
-	public:
-		using Ptr = std::shared_ptr<Declaration>;
-	private:
 		std::string name_;
 		std::weak_ptr<Declaration> parent_;
-
+	public:
+		using Ptr = std::shared_ptr<Declaration>;
 	protected:
 		Declaration(std::string name, Declaration::Ptr parent):
 			name_ { name }, parent_ { parent }
@@ -349,15 +355,33 @@ class Declaration {
 	public:
 		virtual ~Declaration() { }
 		auto name() const { return name_; }
+		static std::string name(Declaration::Ptr d);
 		Declaration::Ptr parent() const { return parent_.lock(); };
 		virtual std::string mangle(std::string name);
 		virtual bool has(std::string name) { return false; }
 		virtual Declaration::Ptr lookup(std::string name);
 		virtual void insert(Declaration::Ptr decl);
 };
+```
+
+Die statische `name()` Methode behandelt den Fall, dass der Zeiger ein
+`nullptr` ist.
+
+```c++
+// ...
+inline std::string Declaration::name(Declaration::Ptr d) {
+	return d ? d->name() : "NIL";
+}
 
 ```
-`decl.cpp`
+
+In `decl.cpp` wird neben der Fehler-Generierung auch das Name-Mangling
+implementiert. Um den Namen eines Kindes zu ermitteln, wird der eigene Name
+mit einem Unterstrich vorangestellt.
+Sollte diese Deklaration wieder ein Kind einer anderen Deklaration sein,
+wird dieses Schema rekursiv fortgesetzt.
+Dies kann zum Beispiel bei Prozeduren geschehen, die weitere Prozeduren
+enthalten dürfen,
 
 ```c++
 #include "decl.h"
@@ -375,10 +399,26 @@ Declaration::Ptr Declaration::lookup(std::string name) {
 }
 
 void Declaration::insert(Declaration::Ptr decl) {
-	throw Error { "cannot insert " + (decl ? decl->name() : std::string { "NIL" }) };
+	throw Error { "cannot insert " + Declaration::name(decl) };
 }
 ```
-`type.h`
+
+Es gibt viele Arten von Deklarationen.
+Alleine in diesem Abschnitt werden wir auf folgende treffen:
+
+* `Module`
+* `Procedure`
+* `Type`
+
+Dabei haben `Module` und `Procedure` die Möglichkeit, Kinder zu haben.
+Dieser Aspekt wird in einer eigenen Subklasse gekapselt.
+
+Vorgestellt werden die Deklarationen in umgekehrter Reihenfolge.
+Dies liegt daran, dass `Procedure` `Type` benötigt (für den Rückgabewert)
+und `Module` `Procedure`n enthält.
+
+Beginnen wir mit `Type` in `type.h`: Die Klasse hat neben dem Namen
+eine IR-Repräsentation:
 
 ```c++
 #pragma once
@@ -387,50 +427,69 @@ void Declaration::insert(Declaration::Ptr decl) {
 #include "lex.h"
 
 class Type: public Declaration {
-		std::string ir_name_;
+		std::string ir_representation_;
 		Type(
 			std::string name, Declaration::Ptr parent,
-		       	std::string ir_name
+		       	std::string ir_representation
 		):
-			Declaration { name, parent }, ir_name_ { ir_name }
+			Declaration { name, parent },
+			ir_representation_ { ir_representation }
 		{ }
 	public:
 		using Ptr = std::shared_ptr<Type>;
 		static Ptr create(
 			std::string name, Declaration::Ptr parent,
-		       	std::string ir_name
+		       	std::string ir_representation
 		);
 		static Ptr parse(Lexer &l, Declaration::Ptr scope);
-		auto ir_name() const { return ir_name_; }
+		auto ir_representation() const { return ir_representation_; }
+		static std::string ir_representation(Type::Ptr type);
 };
 ```
 
-`type.cpp`
+Wie bei der `Declaration` gibt es für die `ir_representation` eine statische
+Hilfsmethode, die den `nullptr`-Fall abfängt:
+
+```c++
+// ...
+inline std::string Type::ir_representation(Type::Ptr type) {
+	return type ? type->ir_representation() : "void";
+}
+```
+
+Momentan müssen wir für das Beispiel nur den Typ `INTEGER` (mit
+Repräsentation `i32`) unterstützen.
+In späteren Abschnitten werden wir diese Klasse gehörig erweitern müssen.
+
+Die Implementierung in `type.cpp` erzeugt die Instanzen.
+Beim Parsen eines Typs wird auf die (noch nicht implementierten) Methoden
+zum Suchen eines Bezeichners zurückgegriffen.
 
 ```c++
 #include "type.h"
 
 #include "err.h"
 
-
 Type::Ptr Type::create(
 	std::string name, Declaration::Ptr parent, std::string ir_name
 ) {
-	if (! parent) { throw Error { "no parent for type" }; }
+	if (! parent) { throw Error { "no parent for TYPE" }; }
 	auto result { Ptr { new Type { name, parent, ir_name } } };
 	parent->insert(result);
 	return result;
 }
 
 Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
-	if (! scope) { throw Error { "no scope" }; }
+	if (! scope) { throw Error { "no scope for TYPE" }; }
 	auto name { l.representation() };
 	if (l.is(Token::Kind::identifier)) {
 		l.advance();
-		auto type { std::dynamic_pointer_cast<Type>(scope->lookup(name)) };
+		auto type { std::dynamic_pointer_cast<Type>(
+			scope->lookup(name))
+		};
 		if (type) { return type; }
 	}
-	throw Error { "no type " + name };
+	throw Error { "no TYPE " + name };
 }
 ```
 
@@ -460,7 +519,7 @@ class Procedure: public Declaration {
 			Declaration { name, parent }, exported_ { exported },
 			return_type_ { return_type }
 		{
-			std::cout << "define " << (return_type ? return_type->ir_name() : "void") << " @" <<
+			std::cout << "define " << Type::ir_representation(return_type) << " @" <<
 					parent->mangle(name) << "() {\n"
 				"entry:\n";
 	       	}

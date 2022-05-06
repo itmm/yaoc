@@ -1,4 +1,4 @@
-#line 440 "1_fn-gen.md"
+#line 499 "1_fn-gen.md"
 #pragma once
 
 #include "decl.h"
@@ -22,7 +22,7 @@ class Procedure: public Declaration {
 			Declaration { name, parent }, exported_ { exported },
 			return_type_ { return_type }
 		{
-			std::cout << "define " << (return_type ? return_type->ir_name() : "void") << " @" <<
+			std::cout << "define " << Type::ir_representation(return_type) << " @" <<
 					parent->mangle(name) << "() {\n"
 				"entry:\n";
 	       	}
