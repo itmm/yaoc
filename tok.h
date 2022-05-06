@@ -9,7 +9,7 @@ class Token {
 			end_of_input, identifier, integer_number,
 			left_parenthesis, right_parenthesis, asterisk,
 			period, colon, semicolon,
-			BEGIN, END, MODULE, PROCEDURE, RETURN
+			BEGIN, END, MODULE, PROCEDURE, RETURN, VAR
 		};
 	private:
 		Kind kind_;

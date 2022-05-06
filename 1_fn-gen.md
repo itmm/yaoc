@@ -110,7 +110,7 @@ class Token {
 			end_of_input, identifier, integer_number,
 			left_parenthesis, right_parenthesis, asterisk,
 			period, colon, semicolon,
-			BEGIN, END, MODULE, PROCEDURE, RETURN
+			BEGIN, END, MODULE, PROCEDURE, RETURN, VAR
 		};
 	private:
 		Kind kind_;
@@ -219,7 +219,8 @@ static std::map<std::string, Token::Kind> keywords {
 	{ "END", Token::Kind::END },
 	{ "MODULE", Token::Kind::MODULE },
 	{ "PROCEDURE", Token::Kind::PROCEDURE },
-	{ "RETURN", Token::Kind::RETURN }
+	{ "RETURN", Token::Kind::RETURN },
+	{ "VAR", Token::Kind::VAR }
 };
 
 const Token &Lexer::read_identifier_or_keyword(int ch) {
@@ -301,11 +302,16 @@ class Declaration {
 
 	protected:
 		Declaration(std::string name, Declaration::Ptr parent):
-			name_ { name }, parent_ { parent } { }
+			name_ { name }, parent_ { parent }
+	       	{ }
 	public:
 		virtual ~Declaration() { }
+		auto name() const { return name_; }
 		auto parent() const { return parent_; };
-		std::string mangle(std::string name);
+		virtual std::string mangle(std::string name);
+		virtual bool has(std::string name) { return false; }
+		virtual Declaration::Ptr lookup(std::string name);
+		virtual void insert(Declaration::Ptr decl);
 };
 ```
 `decl.cpp`
@@ -313,9 +319,266 @@ class Declaration {
 ```c++
 #include "decl.h"
 
+#include "err.h"
+
 std::string Declaration::mangle(std::string name) {
 	auto result { name_ + "_" + name };
 	return parent_ ? parent_->mangle(result) : result;
+}
+
+Declaration::Ptr Declaration::lookup(std::string name) {
+	throw Error { "cannot lookup " + name };
+}
+
+void Declaration::insert(Declaration::Ptr decl) {
+	throw Error { "cannot insert " + (decl ? decl->name() : std::string { "NIL" }) };
+}
+```
+`type.h`
+
+```c++
+#pragma once
+
+#include "decl.h"
+#include "lex.h"
+
+class Type: public Declaration {
+		std::string ir_name_;
+		Type(
+			std::string name, Declaration::Ptr parent,
+		       	std::string ir_name
+		):
+			Declaration { name, parent }, ir_name_ { ir_name }
+		{ }
+	public:
+		using Ptr = std::shared_ptr<Type>;
+		static Ptr create(
+			std::string name, Declaration::Ptr parent,
+		       	std::string ir_name
+		);
+		static Ptr parse(Lexer &l, Declaration::Ptr scope);
+		auto ir_name() const { return ir_name_; }
+};
+```
+
+`type.cpp`
+
+```c++
+#include "type.h"
+
+#include "err.h"
+
+
+Type::Ptr Type::create(
+	std::string name, Declaration::Ptr parent, std::string ir_name
+) {
+	if (! parent) { throw Error { "no parent for type" }; }
+	auto result { Ptr { new Type { name, parent, ir_name } } };
+	parent->insert(result);
+	return result;
+}
+
+Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
+	if (! scope) { throw Error { "no scope" }; }
+	auto name { l.representation() };
+	if (l.is(Token::Kind::identifier)) {
+		l.advance();
+		auto type { std::dynamic_pointer_cast<Type>(scope->lookup(name)) };
+		if (type) { return type; }
+	}
+	throw Error { "no type " + name };
+}
+```
+
+`var.h`
+
+```c++
+#pragma once
+
+#include "decl.h"
+#include "type.h"
+
+#include <vector>
+
+class Variable: public Declaration {
+		Type::Ptr type_;
+		bool exported_;
+		bool var_;
+		Variable(
+			std::string name, Declaration::Ptr parent,
+		       	Type::Ptr type, bool exported, bool var
+		): Declaration { name, parent }, type_ { type }, exported_ { exported }, var_ { var } { }
+	public:
+		static Ptr create(
+			std::string name, Declaration::Ptr parent,
+			Type::Ptr type, bool exported, bool var
+		);
+};
+```
+
+`var.cpp`
+
+```c++
+#include "var.h"
+
+#include "err.h"
+
+Variable::Ptr Variable::create(
+	std::string name, Declaration::Ptr parent, Type::Ptr type,
+	bool exported, bool var
+) {
+	if (! parent) { throw Error { "no parent for variable" }; }
+	auto result { Ptr { new Variable { name, parent, type, exported, var } } };
+	parent->insert(result);
+	return result;
+}
+```
+
+`proc.h`
+
+```c++
+#pragma once
+
+#include "decl.h"
+#include "lex.h"
+#include "mod.h"
+#include "type.h"
+
+#include <iostream>
+
+class Procedure: public Declaration {
+	public:
+		using Ptr = std::shared_ptr<Procedure>;
+	private:
+		Procedure(std::string name, Type::Ptr return_type, Declaration::Ptr parent):
+			Declaration { name, parent }
+		{
+			std::cout << "define " << (return_type ? return_type->ir_name() : "void") << " @" <<
+					parent->mangle(name) << "() {\n"
+				"entry:\n";
+	       	}
+
+		static Procedure::Ptr create(
+			std::string name, Type::Ptr return_type,
+		       	Declaration::Ptr parent
+		);
+		static void parse_statements(Lexer &l, Procedure::Ptr p);
+	public:
+		static Procedure::Ptr parse(Lexer &l, Declaration::Ptr parent);
+		static Procedure::Ptr parse_init(Lexer &l, Declaration::Ptr parent);
+};
+```
+
+`proc.cpp`
+
+```c++
+#include "proc.h"
+
+Procedure::Ptr Procedure::create(
+	std::string name, Type::Ptr return_type, Declaration::Ptr parent
+) {
+	if (! parent) { throw Error { "no parent for procedure" }; }
+	auto result { Ptr { new Procedure { name, return_type, parent } } };
+	parent->insert(result);
+	return result;
+}
+
+void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
+	if (l.is(Token::Kind::BEGIN)) {
+		l.advance();
+		// statement sequence
+	}
+	if (l.is(Token::Kind::RETURN)) {
+		l.advance();
+		if (l.is(Token::Kind::integer_number)) {
+			std::cout << "\tret i32 " << l.int_value() << "\n";
+			l.advance();
+		} else { std::cout << "\tret void\n"; }
+	} else { std::cout << "\tret void\n"; }
+	std::cout << "}\n\n";
+}
+
+Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
+	l.consume(Token::Kind::PROCEDURE);
+	l.expect(Token::Kind::identifier);
+	auto procedure_name { l.representation() };
+	l.advance();
+	if (l.is(Token::Kind::asterisk)) {
+		l.advance();
+	}
+	if (l.is(Token::Kind::left_parenthesis)) {
+		l.advance();
+		// parameter list
+		l.consume(Token::Kind::right_parenthesis);
+	}
+	Type::Ptr return_type;
+	if (l.is(Token::Kind::colon)) {
+		l.advance();
+		return_type = Type::parse(l, parent);
+	} else { return_type = nullptr; }
+	auto proc { create(procedure_name, return_type, parent) };
+	l.consume(Token::Kind::semicolon);
+	parse_statements(l, proc);
+	l.consume(Token::Kind::END);
+	l.expect(Token::Kind::identifier);
+	if (l.representation() != procedure_name) {
+		throw Error {
+			"procedure name " + procedure_name +
+			" does not match END " + l.representation()
+		};
+	};
+	l.advance();
+	l.consume(Token::Kind::semicolon);
+	return proc;
+}
+
+Procedure::Ptr Procedure::parse_init(Lexer &l, Declaration::Ptr parent) {
+	auto proc { create("_init", nullptr, parent) };
+	parse_statements(l, proc);
+	return proc;
+}
+```
+
+`scope.h`
+
+```c++
+#pragma once
+
+#include "decl.h"
+
+#include <map>
+
+class Scoping: public Declaration {
+		std::map<std::string, Declaration::Ptr> entries_;
+	protected:
+		Scoping(std::string name, Declaration::Ptr parent):
+			Declaration { name, parent }
+	       	{ }
+	public:
+		Declaration::Ptr lookup(std::string name) override;
+		void insert(Declaration::Ptr decl) override;
+};
+```
+
+`scope.cpp`
+
+```c++
+#include "scope.h"
+
+#include "err.h"
+
+Declaration::Ptr Scoping::lookup(std::string name) {
+	auto got { entries_.find(name) };
+	if (got != entries_.end()) { return got->second; }
+	if (parent()) { return (parent())->lookup(name); }
+	return nullptr;
+}
+
+void Scoping::insert(Declaration::Ptr decl) {
+	auto res { entries_.insert({ decl->name(), decl }) };
+	if (! res.second) {
+		throw Error { "Element " + decl->name() + " inserted twice" };
+	}
 }
 ```
 
@@ -324,15 +587,17 @@ std::string Declaration::mangle(std::string name) {
 ```c++
 #pragma once
 
-#include "decl.h"
+#include "scope.h"
 #include "lex.h"
 
-class Module: public Declaration {
+class Module: public Scoping {
 	private:
-		Module(std::string name): Declaration { name, nullptr } { }
+		Module(std::string name, Declaration::Ptr parent): Scoping { name, parent } { }
 	public:
 		using Ptr = std::shared_ptr<Module>;
-		static Module::Ptr parse(Lexer &l);
+		static Module::Ptr create(std::string name, Declaration::Ptr parent);
+		static Module::Ptr parse(Lexer &l, Declaration::Ptr parent);
+		std::string mangle(std::string name) override;
 };
 
 ```
@@ -344,13 +609,19 @@ class Module: public Declaration {
 
 #include "proc.h"
 
-Module::Ptr Module::parse(Lexer &l) {
+Module::Ptr Module::create(std::string name, Declaration::Ptr parent) {
+	auto result { Ptr { new Module { name, parent } } };
+	if (parent) { parent->insert(result); }
+	return result;
+}
+
+Module::Ptr Module::parse(Lexer &l, Declaration::Ptr parent) {
 	l.consume(Token::Kind::MODULE);
 	l.expect(Token::Kind::identifier);
 	auto module_name { l.representation() };
 	l.advance();
 	l.consume(Token::Kind::semicolon);
-	auto mod = Ptr { new Module(module_name) };
+	auto mod { create(module_name, parent) };
 	// imports
 	// types
 	// consts
@@ -371,110 +642,34 @@ Module::Ptr Module::parse(Lexer &l) {
 	l.consume(Token::Kind::period);
 	return mod;
 }
+
+std::string Module::mangle(std::string name) {
+	return this->name() + "_" + name;
+}
+
 ```
 
-`proc.h`
+`sys.h`
 
 ```c++
 #pragma once
 
-#include "decl.h"
-#include "lex.h"
 #include "mod.h"
 
-#include <iostream>
-
-class Procedure: public Declaration {
-	public:
-		using Ptr = std::shared_ptr<Procedure>;
-	private:
-		Procedure(std::string name, std::string return_type, Module::Ptr module):
-			Declaration { name, module }
-		{
-			std::cout << "define " << return_type << " @" <<
-					module->mangle(name) << "() {\n"
-				"entry:\n";
-	       	}
-
-		static Procedure::Ptr create(
-			std::string name, std::string return_type,
-		       	Module::Ptr mod
-		);
-		static void parse_statements(Lexer &l, Procedure::Ptr p);
-	public:
-		static Procedure::Ptr parse(Lexer &l, Module::Ptr mod);
-		static Procedure::Ptr parse_init(Lexer &l, Module::Ptr mod);
-};
+Module::Ptr create_SYSTEM();
 ```
 
-`proc.cpp`
+`sys.cpp`
 
 ```c++
-#include "proc.h"
+#include "sys.h"
 
-Procedure::Ptr Procedure::create(
-	std::string name, std::string return_type, Module::Ptr mod
-) {
-	return Ptr { new Procedure { name, return_type, mod } };
-}
+#include "type.h"
 
-void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
-	if (l.is(Token::Kind::BEGIN)) {
-		l.advance();
-		// statement sequence
-	}
-	if (l.is(Token::Kind::RETURN)) {
-		l.advance();
-		if (l.is(Token::Kind::integer_number)) {
-			std::cout << "\tret i32 " << l.int_value() << "\n";
-			l.advance();
-		} else { std::cout << "\tret void\n"; }
-	} else { std::cout << "\tret void\n"; }
-	std::cout << "}\n\n";
-}
-
-Procedure::Ptr Procedure::parse(Lexer &l, Module::Ptr mod) {
-	l.consume(Token::Kind::PROCEDURE);
-	l.expect(Token::Kind::identifier);
-	auto procedure_name { l.representation() };
-	l.advance();
-	if (l.is(Token::Kind::asterisk)) {
-		l.advance();
-	}
-	if (l.is(Token::Kind::left_parenthesis)) {
-		l.advance();
-		// parameter list
-		l.consume(Token::Kind::right_parenthesis);
-	}
-	std::string return_type;
-	if (l.is(Token::Kind::colon)) {
-		l.advance();
-		l.expect(Token::Kind::identifier);
-		if (l.representation() == "INTEGER") {
-			return_type = "i32";
-	       	} else { throw Error { "unknown return type " + l.representation() }; }
-		l.advance();
-	} else { return_type = "void"; }
-	auto proc { create(procedure_name, return_type, mod) };
-	l.consume(Token::Kind::semicolon);
-	parse_statements(l, proc);
-	l.consume(Token::Kind::END);
-	l.expect(Token::Kind::identifier);
-	if (l.representation() != procedure_name) {
-		throw Error {
-			"procedure name " + procedure_name +
-			" does not match END " + l.representation()
-		};
-	};
-	l.advance();
-	l.consume(Token::Kind::semicolon);
-	return proc;
-}
-
-Procedure::Ptr Procedure::parse_init(Lexer &l, Module::Ptr mod) {
-	auto proc { create("_init", "void", mod) };
-	parse_statements(l, proc);
-	return proc;
+Module::Ptr create_SYSTEM() {
+	auto sys { Module::create("SYSTEM", nullptr) };
+	Type::create("INTEGER", sys, "i32");
+	return sys;
 }
 ```
 
@@ -483,10 +678,12 @@ Procedure::Ptr Procedure::parse_init(Lexer &l, Module::Ptr mod) {
 ```c++
 #include "lex.h"
 #include "mod.h"
+#include "sys.h"
 // ...
 	// write expected output
+	auto SYSTEM { create_SYSTEM() };
 	Lexer lx;
-	Module::parse(lx);
+	Module::parse(lx, SYSTEM);
 	#if 0
 	// ...
 		"}\n";

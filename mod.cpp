@@ -1,15 +1,21 @@
-#line 343 "1_fn-gen.md"
+#line 608 "1_fn-gen.md"
 #include "mod.h"
 
 #include "proc.h"
 
-Module::Ptr Module::parse(Lexer &l) {
+Module::Ptr Module::create(std::string name, Declaration::Ptr parent) {
+	auto result { Ptr { new Module { name, parent } } };
+	if (parent) { parent->insert(result); }
+	return result;
+}
+
+Module::Ptr Module::parse(Lexer &l, Declaration::Ptr parent) {
 	l.consume(Token::Kind::MODULE);
 	l.expect(Token::Kind::identifier);
 	auto module_name { l.representation() };
 	l.advance();
 	l.consume(Token::Kind::semicolon);
-	auto mod = Ptr { new Module(module_name) };
+	auto mod { create(module_name, parent) };
 	// imports
 	// types
 	// consts
@@ -30,3 +36,8 @@ Module::Ptr Module::parse(Lexer &l) {
 	l.consume(Token::Kind::period);
 	return mod;
 }
+
+std::string Module::mangle(std::string name) {
+	return this->name() + "_" + name;
+}
+

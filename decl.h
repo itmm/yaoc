@@ -1,4 +1,4 @@
-#line 290 "1_fn-gen.md"
+#line 291 "1_fn-gen.md"
 #pragma once
 
 #include <memory>
@@ -13,9 +13,14 @@ class Declaration {
 
 	protected:
 		Declaration(std::string name, Declaration::Ptr parent):
-			name_ { name }, parent_ { parent } { }
+			name_ { name }, parent_ { parent }
+	       	{ }
 	public:
 		virtual ~Declaration() { }
+		auto name() const { return name_; }
 		auto parent() const { return parent_; };
-		std::string mangle(std::string name);
+		virtual std::string mangle(std::string name);
+		virtual bool has(std::string name) { return false; }
+		virtual Declaration::Ptr lookup(std::string name);
+		virtual void insert(Declaration::Ptr decl);
 };

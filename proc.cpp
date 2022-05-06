@@ -1,10 +1,13 @@
-#line 413 "1_fn-gen.md"
+#line 475 "1_fn-gen.md"
 #include "proc.h"
 
 Procedure::Ptr Procedure::create(
-	std::string name, std::string return_type, Module::Ptr mod
+	std::string name, Type::Ptr return_type, Declaration::Ptr parent
 ) {
-	return Ptr { new Procedure { name, return_type, mod } };
+	if (! parent) { throw Error { "no parent for procedure" }; }
+	auto result { Ptr { new Procedure { name, return_type, parent } } };
+	parent->insert(result);
+	return result;
 }
 
 void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
@@ -22,7 +25,7 @@ void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
 	std::cout << "}\n\n";
 }
 
-Procedure::Ptr Procedure::parse(Lexer &l, Module::Ptr mod) {
+Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 	l.consume(Token::Kind::PROCEDURE);
 	l.expect(Token::Kind::identifier);
 	auto procedure_name { l.representation() };
@@ -35,16 +38,12 @@ Procedure::Ptr Procedure::parse(Lexer &l, Module::Ptr mod) {
 		// parameter list
 		l.consume(Token::Kind::right_parenthesis);
 	}
-	std::string return_type;
+	Type::Ptr return_type;
 	if (l.is(Token::Kind::colon)) {
 		l.advance();
-		l.expect(Token::Kind::identifier);
-		if (l.representation() == "INTEGER") {
-			return_type = "i32";
-	       	} else { throw Error { "unknown return type " + l.representation() }; }
-		l.advance();
-	} else { return_type = "void"; }
-	auto proc { create(procedure_name, return_type, mod) };
+		return_type = Type::parse(l, parent);
+	} else { return_type = nullptr; }
+	auto proc { create(procedure_name, return_type, parent) };
 	l.consume(Token::Kind::semicolon);
 	parse_statements(l, proc);
 	l.consume(Token::Kind::END);
@@ -60,8 +59,8 @@ Procedure::Ptr Procedure::parse(Lexer &l, Module::Ptr mod) {
 	return proc;
 }
 
-Procedure::Ptr Procedure::parse_init(Lexer &l, Module::Ptr mod) {
-	auto proc { create("_init", "void", mod) };
+Procedure::Ptr Procedure::parse_init(Lexer &l, Declaration::Ptr parent) {
+	auto proc { create("_init", nullptr, parent) };
 	parse_statements(l, proc);
 	return proc;
 }

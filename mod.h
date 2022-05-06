@@ -1,14 +1,16 @@
-#line 325 "1_fn-gen.md"
+#line 588 "1_fn-gen.md"
 #pragma once
 
-#include "decl.h"
+#include "scope.h"
 #include "lex.h"
 
-class Module: public Declaration {
+class Module: public Scoping {
 	private:
-		Module(std::string name): Declaration { name, nullptr } { }
+		Module(std::string name, Declaration::Ptr parent): Scoping { name, parent } { }
 	public:
 		using Ptr = std::shared_ptr<Module>;
-		static Module::Ptr parse(Lexer &l);
+		static Module::Ptr create(std::string name, Declaration::Ptr parent);
+		static Module::Ptr parse(Lexer &l, Declaration::Ptr parent);
+		std::string mangle(std::string name) override;
 };
 

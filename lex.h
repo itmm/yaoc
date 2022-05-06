@@ -2,7 +2,7 @@
 #pragma once
 
 #include "tok.h"
-#line 264
+#line 265
 #include "err.h"
 #line 137
 
@@ -11,7 +11,7 @@ class Lexer {
 		const Token &read_number(int ch);
 		const Token &read_identifier_or_keyword(int ch);
 	public:
-#line 269
+#line 270
 		auto representation() const { return tok_.representation(); }
 		bool is(Token::Kind kind) const { return tok_.kind() == kind; }
 		void expect(Token::Kind kind) const {

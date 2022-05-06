@@ -13,8 +13,11 @@ build/%.o: %.cpp
 	mkdir -p build deps
 	clang++ $(CXXFLAGS) -c $(notdir $(@:.o=.cpp)) -o $@ -MMD -MF deps/$(notdir $(@:.o=.dep))
 
-yaoc: build/yaoc.o build/lex.o build/mod.o build/proc.o build/decl.o
-	clang++ $(CXXFLAGS) -o $@ build/yaoc.o build/lex.o build/mod.o build/proc.o build/decl.o
+CPPs := yaoc.cpp lex.cpp mod.cpp proc.cpp decl.cpp type.cpp var.cpp sys.cpp scope.cpp
+OBJs := $(addprefix build/,$(CPPs:.cpp=.o))
+
+yaoc: $(OBJs)
+	clang++ $(CXXFLAGS) -o $@ $(OBJs)
 
 real_tests: t_fn-test
 	./t_fn-test
