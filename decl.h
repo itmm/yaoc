@@ -1,4 +1,4 @@
-#line 290 "1_fn-gen.md"
+#line 333 "1_fn-gen.md"
 #pragma once
 
 #include <memory>

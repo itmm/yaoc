@@ -74,8 +74,44 @@ clang++ t_fn-test.cpp FnTest.ll -o t_fn-test
 ./t_fn-test
 ```
 
-Das mit diesem Projekt abgelegte [Makefile](./Makefile) erledigt das Bauen und
-Ausführen der Tests automagisch.
+Die `target`-Zeile ist etwas komisch.
+Eigentlich sollte der generierte Code plattform-neutral sein.
+LLVM erwartet jedoch trotzdem eine Plattform-Angabe.
+Dies ist das `Target_Triple`.
+
+Ermittelt werden kann dies mit dem Shell-Aufruf
+
+```
+llvm-config --host-target
+```
+
+Das mit diesem Projekt abgelegte [Makefile](./Makefile) extrahiert die
+Ausgabe in ein Makro, das dem Compiler beim Bauen mitgegeben wird.
+So kann auf Low-Level Code im eigentlichen Compiler verzichtet werden.
+Der generierte Code ist für die gleiche Plattform, für die der Compiler
+gebaut wurde. Zusätzlich erledigt das [Makefile](./Makefile) auch das
+Bauen und Ausführen der Test-Anwendungen.
+
+Die Fehler-Behandlung findet rudimentär in `err.h` statt.
+Es gibt einen Exception, die den aktuellen Fehler beschreibt.
+Das Programm wird beim ersten Fehler beenndet.
+
+```c++
+#pragma once
+
+#include <stdexcept>
+#include <string>
+
+class Error: public std::exception {
+		std::string what_;
+	public:
+		Error(std::string what): what_ { what } { }
+		const char *what() const noexcept override {
+			return what_.c_str();
+		}
+};
+
+```
 
 Wir können jetzt anfangen die Eingabe zu lesen. Die Eingabe wird in Blöcke
 (sogenannte Token) zerlegt. Es gibt folgende Arten von Tokens:
@@ -102,6 +138,8 @@ abgelegt, die das Token repräsentieren:
 ```c++
 #pragma once
 
+#include "err.h"
+
 #include <string>
 
 class Token {
@@ -117,14 +155,20 @@ class Token {
 		std::string representation_;
 		int int_value_;
 	public:
-		Token(Kind kind, std::string representation, int int_value = 0):
-			kind_ { kind }, representation_ { representation },
-			int_value_ { int_value }
-		{ }
+		Token(Kind kind, std::string representation, int int_value = 0);
 		auto kind() const { return kind_; }
 		auto representation() const { return representation_; }
 		auto int_value() const { return int_value_; }
 };
+
+inline Token::Token(Kind kind, std::string representation, int int_value):
+	kind_ { kind }, representation_ { representation },
+	int_value_ { int_value }
+{
+	if (int_value_ && kind_ != Kind::integer_number) {
+		throw Error { "invalid INTEGER value" };
+	}
+}
 ```
 
 Zusätzlich gibt es einen `Lexer` in `lex.h`, der die Standard-Eingabe
@@ -194,6 +238,9 @@ const Token &Lexer::advance() {
 }
 ```
 
+Beim Parsen von Zahlen wird neben der Repräsentation gleich die Zahl mit
+aufgebaut.
+
 ```c++
 // ...
 const Token &Lexer::read_number(int ch) {
@@ -212,6 +259,11 @@ const Token &Lexer::read_number(int ch) {
 }
 ```
 
+Da ein Zeichen zuviel gelesen wurde, wird das letzte Zeichen in den
+Eingabe-Strom zurückgeschoben.
+
+Die Schlüsselwörter werden in einer eigenen Tabelle abgelegt:
+
 ```c++
 // ...
 static std::map<std::string, Token::Kind> keywords {
@@ -221,7 +273,13 @@ static std::map<std::string, Token::Kind> keywords {
 	{ "PROCEDURE", Token::Kind::PROCEDURE },
 	{ "RETURN", Token::Kind::RETURN }
 };
+```
 
+Wenn ein Bezeichner gelesen wurde, wird geprüft, ob es sich vielleicht um
+ein Schlüsselwort handelt:
+
+```c++
+// ...
 const Token &Lexer::read_identifier_or_keyword(int ch) {
 	std::string rep { };
 	for (; ch != EOF && std::isalnum(ch); ch = std::cin.get()) {
@@ -237,26 +295,11 @@ const Token &Lexer::read_identifier_or_keyword(int ch) {
 }
 ```
 
-`err.h`
+Auch hier muss das letzte Zeichen zurückgeschoben werden.
 
-```c++
-#pragma once
-
-#include <stdexcept>
-#include <string>
-
-class Error: public std::exception {
-		std::string what_;
-	public:
-		Error(std::string what): what_ { what } { }
-		const char *what() const noexcept override {
-			return what_.c_str();
-		}
-};
-
-```
-
-`lex.h`
+In der Header-Datei `lex.h` werden zusätzlich Zugriffs-Methoden auf das
+enthaltene Token geliefert.
+Dies vereinfacht den Parser.
 
 ```c++
 // ...
