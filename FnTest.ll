@@ -1,4 +1,4 @@
-target triple = "x86_64-pc-linux-gnu"
+target triple = "armv6k-unknown-linux-gnueabihf"
 
 define i32 @FnTest_Answer() {
 entry:

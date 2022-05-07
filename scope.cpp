@@ -1,4 +1,4 @@
-#line 614 "1_fn-gen.md"
+#line 639 "1_fn-gen.md"
 #include "scope.h"
 
 #include "err.h"

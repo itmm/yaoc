@@ -537,6 +537,27 @@ Momentan müssen wir für das Beispiel nur den Typ `INTEGER` (mit
 Repräsentation `i32`) unterstützen.
 In späteren Abschnitten werden wir diese Klasse gehörig erweitern müssen.
 
+In `decl.h` gibt es eine statische Hilfsmethode, um einfacher Kinder zu
+einem Eltern-Element hinzuzufügen:
+
+```c++
+#include "err.h"
+// ...
+class Declaration {
+	// ...
+	protected:
+		template<typename T> static T insert(
+			T self, Declaration::Ptr parent
+		) {
+			if (! parent) { throw Error { "no parent" }; }
+			parent->insert(self);
+			return self;
+		}
+	// ...
+};
+// ...
+```
+
 Die Implementierung in `type.cpp` erzeugt die Instanzen.
 Beim Parsen eines Typs wird auf die (noch nicht implementierten) Methoden
 zum Suchen eines Bezeichners zurückgegriffen.
@@ -550,10 +571,9 @@ zum Suchen eines Bezeichners zurückgegriffen.
 Type::Ptr Type::create(
 	std::string name, Declaration::Ptr parent, std::string ir_name
 ) {
-	if (! parent) { throw Error { "no parent for TYPE" }; }
-	auto result { Ptr { new Type { name, parent, ir_name } } };
-	parent->insert(result);
-	return result;
+	return Declaration::insert(
+		Ptr { new Type { name, parent, ir_name } }, parent
+	);
 }
 
 Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
@@ -563,6 +583,11 @@ Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
 	return t;
 }
 ```
+
+Ein bisschen unglücklich ist, dass in jeder `create`-Funktion das Element
+manuell in den `parent` eingetragen werden muss.
+Im Konstruktor einer `Declaration` klappt es noch nicht, da an dieser Stelle
+der `shared_ptr` noch nicht existiert.
 
 Mit dem `parse_qualified_ident` ist es möglich, den Modul-Namen bei Bezeichnern
 mit anzugeben.  So kann anstatt des Bezeichners `INTEGER` auch
@@ -659,6 +684,7 @@ class Procedure: public Scoping {
 			Type::Ptr return_type, Declaration::Ptr parent
 		);
 		static void parse_statements(Lexer &l, Procedure::Ptr p);
+		static void return_integer_value(Procedure::Ptr p, int value);
 	protected:
 		static Procedure::Ptr create(
 			std::string name, bool exported, Type::Ptr return_type,
@@ -674,7 +700,8 @@ class Procedure: public Scoping {
 };
 ```
 
-`proc.cpp`
+Das eigentliche Parsen findet in `proc.cpp` statt.
+Beim Erzeugen einer Prozedur wird der notwendige IR-Code herausgeschrieben.
 
 ```c++
 #include "proc.h"
@@ -683,29 +710,30 @@ Procedure::Ptr Procedure::create(
 	std::string name, bool exported, Type::Ptr return_type,
        	Declaration::Ptr parent
 ) {
-	if (! parent) { throw Error { "no parent for procedure" }; }
-	auto result { Ptr { new Procedure {
-		name, exported, return_type, parent
-       	} } };
-	parent->insert(result);
-	return result;
+	return Declaration::insert(
+		Ptr { new Procedure { name, exported, return_type, parent } },
+		parent
+	);
 }
 
-void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
-	if (l.is(Token::Kind::BEGIN)) {
-		l.advance();
-		// statement sequence
+Procedure::Procedure(
+	std::string name, bool exported,
+	Type::Ptr return_type, Declaration::Ptr parent
+):
+	Scoping { name, parent }, exported_ { exported },
+	return_type_ { return_type }
+{
+	if (! exported_) {
+		throw Error { "only exported PROCEDUREs are supported yet" };
 	}
-	if (l.is(Token::Kind::RETURN)) {
-		l.advance();
-		if (l.is(Token::Kind::integer_number)) {
-			std::cout << "\tret i32 " << l.int_value() << "\n";
-			l.advance();
-		} else { std::cout << "\tret void\n"; }
-	} else { std::cout << "\tret void\n"; }
-	std::cout << "}\n\n";
+	std::cout << "define " << Type::ir_representation(return_type) <<
+			" @" << parent->mangle(name) << "() {\n"
+		"entry:\n";
 }
+```
 
+```c++
+// ...
 Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 	auto module { std::dynamic_pointer_cast<Module>(parent) };
 	l.consume(Token::Kind::PROCEDURE);
@@ -744,29 +772,56 @@ Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 	l.consume(Token::Kind::semicolon);
 	return proc;
 }
+```
 
+Eine Parameter-Liste wird momentan bei Prozeduren noch nicht unterstützt.
+
+```c++
+// ...
+void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
+	if (! p) { throw Error { "no PROCEDURE" }; }
+	if (l.is(Token::Kind::BEGIN)) {
+		l.advance();
+		// statement sequence
+	}
+	if (l.is(Token::Kind::RETURN)) {
+		l.advance();
+		if (l.is(Token::Kind::integer_number)) {
+			return_integer_value(p, l.int_value());
+			l.advance();
+			return;
+		}
+	}
+	if (p->return_type()) {
+		throw Error { "PROCEDURE needs RETURN with value" };
+	}
+	std::cout << "\tret void\n}\n\n";
+}
+```
+
+Die Statement-Sequenz wird momentan noch nicht geparst.
+
+```c++
+// ...
+void Procedure::return_integer_value(Procedure::Ptr p, int value) {
+	if (! p) { throw Error { "no PROCEDURE" }; }
+	auto rep { Type::ir_representation(p->return_type()) };
+	if (rep != "i32") {
+		throw Error { "PROCEDURE has wrong RETURN TYPE" };
+	}
+	std::cout << "\tret " + rep + " " << value << "\n}\n\n";
+}
+```
+
+Eine Zahl darf nur bei Prozeduren zurückgegeben werden, welche den passenden
+Rückgabe-Typ haben.
+
+```c++
+// ...
 Procedure::Ptr Procedure::parse_init(Lexer &l, Declaration::Ptr parent) {
 	auto proc { create("_init", true, nullptr, parent) };
 	parse_statements(l, proc);
 	return proc;
-}
-```
-
-```c++
-// ...
-Procedure::Procedure(
-	std::string name, bool exported,
-	Type::Ptr return_type, Declaration::Ptr parent
-):
-	Scoping { name, parent }, exported_ { exported },
-	return_type_ { return_type }
-{
-	if (! exported_) {
-		throw Error { "only exported PROCEDUREs are supported yet" };
-	}
-	std::cout << "define " << Type::ir_representation(return_type) <<
-			" @" << parent->mangle(name) << "() {\n"
-		"entry:\n";
 }
 ```
 
@@ -853,7 +908,7 @@ std::string Module::mangle(std::string name) {
 
 #include "mod.h"
 
-Module::Ptr create_SYSTEM();
+Module::Ptr get_SYSTEM();
 ```
 
 `sys.cpp`
@@ -863,7 +918,7 @@ Module::Ptr create_SYSTEM();
 
 #include "type.h"
 
-Module::Ptr create_SYSTEM() {
+Module::Ptr get_SYSTEM() {
 	static Module::Ptr sys;
 	if (sys) { return sys; }
 	sys = Module::create("SYSTEM", nullptr);
@@ -884,7 +939,7 @@ Module::Ptr create_SYSTEM() {
 #include "sys.h"
 // ...
 	// write expected output
-	auto SYSTEM { create_SYSTEM() };
+	auto SYSTEM { get_SYSTEM() };
 	Lexer lx;
 	Module::parse(lx, SYSTEM);
 	#if 0

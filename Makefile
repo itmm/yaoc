@@ -1,8 +1,9 @@
 .PHONY: tests real_tests clean mdp_clean lines
 
 tests:
+	@echo MDP
 	@mdp README.md
-	@$(MAKE) real_tests
+	@$(MAKE) --no-print-directory real_tests
 
 include $(wildcard deps/*.dep)
 

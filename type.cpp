@@ -1,4 +1,4 @@
-#line 545 "1_fn-gen.md"
+#line 566 "1_fn-gen.md"
 #include "type.h"
 
 #include "err.h"
@@ -7,10 +7,9 @@
 Type::Ptr Type::create(
 	std::string name, Declaration::Ptr parent, std::string ir_name
 ) {
-	if (! parent) { throw Error { "no parent for TYPE" }; }
-	auto result { Ptr { new Type { name, parent, ir_name } } };
-	parent->insert(result);
-	return result;
+	return Declaration::insert(
+		Ptr { new Type { name, parent, ir_name } }, parent
+	);
 }
 
 Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {

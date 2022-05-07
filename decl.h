@@ -1,4 +1,6 @@
-#line 365 "1_fn-gen.md"
+#line 544 "1_fn-gen.md"
+#include "err.h"
+#line 365
 #pragma once
 
 #include <memory>
@@ -10,6 +12,15 @@ class Declaration {
 	public:
 		using Ptr = std::shared_ptr<Declaration>;
 	protected:
+#line 549
+		template<typename T> static T insert(
+			T self, Declaration::Ptr parent
+		) {
+			if (! parent) { throw Error { "no parent" }; }
+			parent->insert(self);
+			return self;
+		}
+#line 376
 		Declaration(std::string name, Declaration::Ptr parent):
 			name_ { name }, parent_ { parent }
 		{ }
