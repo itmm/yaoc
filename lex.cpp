@@ -1,4 +1,4 @@
-#line 220 "1_fn-gen.md"
+#line 256 "1_fn-gen.md"
 #include "lex.h"
 
 #include "err.h"
@@ -33,21 +33,19 @@ const Token &Lexer::advance() {
 		case ';':
 			tok_ = Token { Token::Kind::semicolon, ";" };
 			break;
-		default: throw Error {
-			std::string { "unknown char '" } +
-			static_cast<char>(ch) + "'"
-		};
+		default: 
+			err("unknown char '", static_cast<char>(ch), "'");
 	}
 	return tok_;
 }
-#line 268
+#line 302
 const Token &Lexer::read_number(int ch) {
 	std::string rep { }; int value { 0 };
 	for (; ch != EOF && std::isdigit(ch); ch = std::cin.get()) {
 		rep += static_cast<char>(ch);
 		int digit { ch - '0' };
 		if (value > (std::numeric_limits<int>::max() - digit) / 10) {
-			throw Error { "INTEGER too big: " + rep };
+			err("INTEGER too big: ", quote(rep));
 		}
 		value = value * 10 + digit;
 	}
@@ -55,7 +53,7 @@ const Token &Lexer::read_number(int ch) {
 	tok_ = Token { Token::Kind::integer_number, rep, value };
 	return tok_;
 }
-#line 291
+#line 325
 static std::map<std::string, Token::Kind> keywords {
 	{ "BEGIN", Token::Kind::BEGIN },
 	{ "END", Token::Kind::END },
@@ -63,7 +61,7 @@ static std::map<std::string, Token::Kind> keywords {
 	{ "PROCEDURE", Token::Kind::PROCEDURE },
 	{ "RETURN", Token::Kind::RETURN }
 };
-#line 305
+#line 339
 const Token &Lexer::read_identifier_or_keyword(int ch) {
 	std::string rep { };
 	for (; ch != EOF && std::isalnum(ch); ch = std::cin.get()) {

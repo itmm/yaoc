@@ -1,4 +1,4 @@
-#line 159 "1_fn-gen.md"
+#line 186 "1_fn-gen.md"
 #pragma once
 
 #include "err.h"
@@ -29,6 +29,10 @@ inline Token::Token(Kind kind, std::string representation, int int_value):
 	int_value_ { int_value }
 {
 	if (int_value_ && kind_ != Kind::integer_number) {
-		throw Error { "invalid INTEGER value" };
+		err("invalid INTEGER value for ", quote(representation));
 	}
+}
+
+inline std::string quote(const Token &tok) {
+	return quote(tok.representation());
 }

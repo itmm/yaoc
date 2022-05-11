@@ -1,6 +1,6 @@
-#line 544 "1_fn-gen.md"
+#line 581 "1_fn-gen.md"
 #include "err.h"
-#line 365
+#line 396
 #pragma once
 
 #include <memory>
@@ -12,15 +12,15 @@ class Declaration {
 	public:
 		using Ptr = std::shared_ptr<Declaration>;
 	protected:
-#line 549
+#line 586
 		template<typename T> static T insert(
 			T self, Declaration::Ptr parent
 		) {
-			if (! parent) { throw Error { "no parent" }; }
+			if (! parent) { err("no parent"); }
 			parent->insert(self);
 			return self;
 		}
-#line 376
+#line 407
 		Declaration(std::string name, Declaration::Ptr parent):
 			name_ { name }, parent_ { parent }
 		{ }
@@ -34,8 +34,11 @@ class Declaration {
 		virtual Declaration::Ptr lookup(std::string name);
 		virtual void insert(Declaration::Ptr decl);
 };
-#line 396
+#line 427
 inline std::string Declaration::name(Declaration::Ptr d) {
 	return d ? d->name() : "NIL";
 }
 
+inline std::string quote(Declaration::Ptr d) {
+	return Declaration::name(d);
+}

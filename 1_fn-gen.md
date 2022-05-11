@@ -112,6 +112,7 @@ Das Programm wird beim ersten Fehler beendet.
 #pragma once
 
 #include <stdexcept>
+#include <sstream>
 #include <string>
 
 class Error: public std::exception {
@@ -123,7 +124,33 @@ class Error: public std::exception {
 		}
 };
 
+inline void err_with_stream(std::ostringstream &out) {
+	throw Error { out.str() };
+}
+
+template<typename ARG, typename... ARGS> inline void err_with_stream(
+	std::ostringstream &out, ARG arg, ARGS... rest
+) {
+	out << arg;
+	err_with_stream(out, rest...);
+}
+
+template<typename... ARGS> inline void err(ARGS... args) {
+	std::ostringstream out;
+	err_with_stream(out, args...);
+}
 ```
+
+Zusätzlich gibt es die Funktion `quote` um direkt Elemente einfach in
+Meldungen ausgeben zu können:
+
+```c++
+// ...
+inline std::string quote(std::string s) { return "'" + s + "'"; }
+```
+
+Die Funktion wird mit anderen Typen überladen, um die Meldungen einfach
+zu halten.
 
 ## Tokenizer
 
@@ -186,8 +213,12 @@ inline Token::Token(Kind kind, std::string representation, int int_value):
 	int_value_ { int_value }
 {
 	if (int_value_ && kind_ != Kind::integer_number) {
-		throw Error { "invalid INTEGER value" };
+		err("invalid INTEGER value for ", quote(representation));
 	}
+}
+
+inline std::string quote(const Token &tok) {
+	return quote(tok.representation());
 }
 ```
 
@@ -210,7 +241,12 @@ class Lexer {
 		Lexer():
 			tok_ { Token::Kind::end_of_input, "" }
 		{ advance(); }
+		auto &token() const { return tok_; }
 };
+
+inline std::string quote(const Lexer &l) {
+	return quote(l.token());
+}
 ```
 
 Die Implementierung in `lex.cpp` ist auch hier zuerst einmal sehr schlicht
@@ -251,10 +287,8 @@ const Token &Lexer::advance() {
 		case ';':
 			tok_ = Token { Token::Kind::semicolon, ";" };
 			break;
-		default: throw Error {
-			std::string { "unknown char '" } +
-			static_cast<char>(ch) + "'"
-		};
+		default: 
+			err("unknown char '", static_cast<char>(ch), "'");
 	}
 	return tok_;
 }
@@ -271,7 +305,7 @@ const Token &Lexer::read_number(int ch) {
 		rep += static_cast<char>(ch);
 		int digit { ch - '0' };
 		if (value > (std::numeric_limits<int>::max() - digit) / 10) {
-			throw Error { "INTEGER too big: " + rep };
+			err("INTEGER too big: ", quote(rep));
 		}
 		value = value * 10 + digit;
 	}
@@ -334,11 +368,7 @@ class Lexer {
 		auto representation() const { return tok_.representation(); }
 		bool is(Token::Kind kind) const { return tok_.kind() == kind; }
 		void expect(Token::Kind kind) const {
-			if (! is(kind)) {
-				throw Error {
-					"not expected " + tok_.representation()
-				};
-			}
+			if (! is(kind)) { err("not expected " + quote(tok_)); }
 		}
 		const Token& consume(Token::Kind kind) {
 			expect(kind);
@@ -347,6 +377,7 @@ class Lexer {
 		auto int_value() const { return tok_.int_value(); }
 		// ...
 };
+// ...
 ```
 
 # Deklarationen
@@ -397,6 +428,9 @@ inline std::string Declaration::name(Declaration::Ptr d) {
 	return d ? d->name() : "NIL";
 }
 
+inline std::string quote(Declaration::Ptr d) {
+	return Declaration::name(d);
+}
 ```
 
 In `decl.cpp` wird neben der Fehler-Generierung auch das Name-Mangling
@@ -419,11 +453,12 @@ std::string Declaration::mangle(std::string name) {
 }
 
 Declaration::Ptr Declaration::lookup(std::string name) {
-	throw Error { "cannot lookup " + name };
+	err("cannot lookup ", quote(name));
+	return nullptr;
 }
 
 void Declaration::insert(Declaration::Ptr decl) {
-	throw Error { "cannot insert " + Declaration::name(decl) };
+	err("cannot insert ", quote(decl));
 }
 ```
 
@@ -464,12 +499,12 @@ Dies ist in `qual.cpp` umgesetzt:
 #include "mod.h"
 
 Declaration::Ptr parse_qualified_ident(Lexer &l, Declaration::Ptr scope) {
-	if (! scope) { throw Error { "NIL scope in parse_qualified" }; }
+	if (! scope) { err(quote(scope), "scope in parse_qualified"); }
 	l.expect(Token::Kind::identifier);
 	auto name { l.representation() };
 	l.advance();
 	auto got { scope->lookup(name) };
-	if (! got) { throw Error { name + " not found" }; }
+	if (! got) { err(quote(name), " not found"); }
 	if (auto mod { std::dynamic_pointer_cast<Module>(got) }) {
 		if (l.is(Token::Kind::period)) {
 			l.advance();
@@ -478,9 +513,7 @@ Declaration::Ptr parse_qualified_ident(Lexer &l, Declaration::Ptr scope) {
 			l.advance();
 			auto got { mod->lookup(name) };
 			if (! got) {
-				throw Error {
-					name + " not found in " + mod->name()
-				};
+				err(quote(name), " not found in ", quote(mod));
 			}
 			return got;
 		}
@@ -521,6 +554,10 @@ class Type: public Declaration {
 		auto ir_representation() const { return ir_representation_; }
 		static std::string ir_representation(Type::Ptr type);
 };
+
+inline std::string quote(Type::Ptr type) {
+	return "TYPE " + quote(Declaration::name(type));
+}
 ```
 
 Wie bei der `Declaration` gibt es für die `ir_representation` eine statische
@@ -549,7 +586,7 @@ class Declaration {
 		template<typename T> static T insert(
 			T self, Declaration::Ptr parent
 		) {
-			if (! parent) { throw Error { "no parent" }; }
+			if (! parent) { err("no parent"); }
 			parent->insert(self);
 			return self;
 		}
@@ -579,7 +616,7 @@ Type::Ptr Type::create(
 Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
 	auto got  { parse_qualified_ident(l, scope) };
 	auto t { std::dynamic_pointer_cast<Type>(got) };
-	if (! t) { throw Error { Declaration::name(got) + " is no TYPE" }; }
+	if (! t) { err(quote(got), " is no TYPE"); }
 	return t;
 }
 ```
@@ -650,7 +687,7 @@ Declaration::Ptr Scoping::lookup(std::string name) {
 void Scoping::insert(Declaration::Ptr decl) {
 	auto res { entries_.insert({ decl->name(), decl }) };
 	if (! res.second) {
-		throw Error { "Element " + decl->name() + " inserted twice" };
+		err("element ", quote(decl), " inserted twice");
 	}
 }
 ```
@@ -698,6 +735,10 @@ class Procedure: public Scoping {
 		auto exported() const { return exported_; }
 		auto return_type() const { return return_type_; }
 };
+
+inline std::string quote(Procedure::Ptr proc) {
+	return "PROCEDURE " + quote(Declaration::name(proc));
+}
 ```
 
 Das eigentliche Parsen findet in `proc.cpp` statt.
@@ -724,7 +765,7 @@ Procedure::Procedure(
 	return_type_ { return_type }
 {
 	if (! exported_) {
-		throw Error { "only exported PROCEDUREs are supported yet" };
+		err("only exported PROCEDUREs are supported yet");
 	}
 	std::cout << "define " << Type::ir_representation(return_type) <<
 			" @" << parent->mangle(name) << "() {\n"
@@ -744,7 +785,7 @@ Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 	if (l.is(Token::Kind::asterisk)) {
 		if (module) {
 			exported = true;
-		} else { throw Error { "cannot export " + procedure_name }; }
+		} else { err("cannot export PROCEDURE " + quote(procedure_name)); }
 		l.advance();
 	}
 	if (l.is(Token::Kind::left_parenthesis)) {
@@ -763,10 +804,7 @@ Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 	l.consume(Token::Kind::END);
 	l.expect(Token::Kind::identifier);
 	if (l.representation() != procedure_name) {
-		throw Error {
-			"procedure name " + procedure_name +
-			" does not match END " + l.representation()
-		};
+		err(quote(proc), " does not match END ", quote(l));
 	};
 	l.advance();
 	l.consume(Token::Kind::semicolon);
@@ -779,7 +817,7 @@ Eine Parameter-Liste wird momentan bei Prozeduren noch nicht unterstützt.
 ```c++
 // ...
 void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
-	if (! p) { throw Error { "no PROCEDURE" }; }
+	if (! p) { err("no PROCEDURE"); }
 	if (l.is(Token::Kind::BEGIN)) {
 		l.advance();
 		// statement sequence
@@ -793,7 +831,7 @@ void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
 		}
 	}
 	if (p->return_type()) {
-		throw Error { "PROCEDURE needs RETURN with value" };
+		err(quote(p), " needs RETURN with value");
 	}
 	std::cout << "\tret void\n}\n\n";
 }
@@ -804,10 +842,10 @@ Die Statement-Sequenz wird momentan noch nicht geparst.
 ```c++
 // ...
 void Procedure::return_integer_value(Procedure::Ptr p, int value) {
-	if (! p) { throw Error { "no PROCEDURE" }; }
+	if (! p) { err("no PROCEDURE"); }
 	auto rep { Type::ir_representation(p->return_type()) };
 	if (rep != "i32") {
-		throw Error { "PROCEDURE has wrong RETURN TYPE" };
+		err(quote(p), " has wrong RETURN TYPE");
 	}
 	std::cout << "\tret " + rep + " " << value << "\n}\n\n";
 }
@@ -850,6 +888,9 @@ class Module: public Scoping {
 		std::string mangle(std::string name) override;
 };
 
+inline std::string quote(Module::Ptr mod) {
+	return "MODULE " + quote(Declaration::name(mod));
+}
 ```
 
 `mod.cpp`
@@ -883,10 +924,7 @@ Module::Ptr Module::parse(Lexer &l, Declaration::Ptr parent) {
 	l.consume(Token::Kind::END);
 	l.expect(Token::Kind::identifier);
 	if (l.representation() != module_name) {
-		throw Error {
-			"module name " + module_name +
-			" does not match END " + l.representation()
-		};
+		err(quote(mod), " does not match END ", quote(l.representation()));
 	}
 	l.advance();
 	l.consume(Token::Kind::period);

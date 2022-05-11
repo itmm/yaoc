@@ -1,4 +1,4 @@
-#line 858 "1_fn-gen.md"
+#line 899 "1_fn-gen.md"
 #include "mod.h"
 
 #include "proc.h"
@@ -27,10 +27,7 @@ Module::Ptr Module::parse(Lexer &l, Declaration::Ptr parent) {
 	l.consume(Token::Kind::END);
 	l.expect(Token::Kind::identifier);
 	if (l.representation() != module_name) {
-		throw Error {
-			"module name " + module_name +
-			" does not match END " + l.representation()
-		};
+		err(quote(mod), " does not match END ", quote(l.representation()));
 	}
 	l.advance();
 	l.consume(Token::Kind::period);

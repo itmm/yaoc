@@ -1,4 +1,4 @@
-#line 834 "1_fn-gen.md"
+#line 872 "1_fn-gen.md"
 #pragma once
 
 #include "scope.h"
@@ -18,3 +18,6 @@ class Module: public Scoping {
 		std::string mangle(std::string name) override;
 };
 
+inline std::string quote(Module::Ptr mod) {
+	return "MODULE " + quote(Declaration::name(mod));
+}

@@ -1,4 +1,4 @@
-#line 666 "1_fn-gen.md"
+#line 703 "1_fn-gen.md"
 #pragma once
 
 #include "lex.h"
@@ -34,3 +34,7 @@ class Procedure: public Scoping {
 		auto exported() const { return exported_; }
 		auto return_type() const { return return_type_; }
 };
+
+inline std::string quote(Procedure::Ptr proc) {
+	return "PROCEDURE " + quote(Declaration::name(proc));
+}

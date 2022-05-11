@@ -1,4 +1,4 @@
-#line 500 "1_fn-gen.md"
+#line 533 "1_fn-gen.md"
 #pragma once
 
 #include "decl.h"
@@ -23,7 +23,11 @@ class Type: public Declaration {
 		auto ir_representation() const { return ir_representation_; }
 		static std::string ir_representation(Type::Ptr type);
 };
-#line 531
+
+inline std::string quote(Type::Ptr type) {
+	return "TYPE " + quote(Declaration::name(type));
+}
+#line 568
 inline std::string Type::ir_representation(Type::Ptr type) {
 	return type ? type->ir_representation() : "void";
 }

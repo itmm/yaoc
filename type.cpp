@@ -1,4 +1,4 @@
-#line 566 "1_fn-gen.md"
+#line 603 "1_fn-gen.md"
 #include "type.h"
 
 #include "err.h"
@@ -15,6 +15,6 @@ Type::Ptr Type::create(
 Type::Ptr Type::parse(Lexer &l, Declaration::Ptr scope) {
 	auto got  { parse_qualified_ident(l, scope) };
 	auto t { std::dynamic_pointer_cast<Type>(got) };
-	if (! t) { throw Error { Declaration::name(got) + " is no TYPE" }; }
+	if (! t) { err(quote(got), " is no TYPE"); }
 	return t;
 }

@@ -1,4 +1,4 @@
-#line 937 "1_fn-gen.md"
+#line 975 "1_fn-gen.md"
 #include "lex.h"
 #include "mod.h"
 #include "sys.h"
@@ -9,7 +9,7 @@ int main() {
 	std::cout << "target triple = \"" Target_Triple "\"\n\n";
 
 	// write expected output
-#line 942
+#line 980
 	auto SYSTEM { get_SYSTEM() };
 	Lexer lx;
 	Module::parse(lx, SYSTEM);

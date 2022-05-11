@@ -1,4 +1,4 @@
-#line 411 "1_fn-gen.md"
+#line 445 "1_fn-gen.md"
 #include "decl.h"
 
 #include "err.h"
@@ -10,9 +10,10 @@ std::string Declaration::mangle(std::string name) {
 }
 
 Declaration::Ptr Declaration::lookup(std::string name) {
-	throw Error { "cannot lookup " + name };
+	err("cannot lookup ", quote(name));
+	return nullptr;
 }
 
 void Declaration::insert(Declaration::Ptr decl) {
-	throw Error { "cannot insert " + Declaration::name(decl) };
+	err("cannot insert ", quote(decl));
 }

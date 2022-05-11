@@ -1,4 +1,4 @@
-#line 707 "1_fn-gen.md"
+#line 748 "1_fn-gen.md"
 #include "proc.h"
 
 Procedure::Ptr Procedure::create(
@@ -19,13 +19,13 @@ Procedure::Procedure(
 	return_type_ { return_type }
 {
 	if (! exported_) {
-		throw Error { "only exported PROCEDUREs are supported yet" };
+		err("only exported PROCEDUREs are supported yet");
 	}
 	std::cout << "define " << Type::ir_representation(return_type) <<
 			" @" << parent->mangle(name) << "() {\n"
 		"entry:\n";
 }
-#line 737
+#line 778
 Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 	auto module { std::dynamic_pointer_cast<Module>(parent) };
 	l.consume(Token::Kind::PROCEDURE);
@@ -36,7 +36,7 @@ Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 	if (l.is(Token::Kind::asterisk)) {
 		if (module) {
 			exported = true;
-		} else { throw Error { "cannot export " + procedure_name }; }
+		} else { err("cannot export PROCEDURE " + quote(procedure_name)); }
 		l.advance();
 	}
 	if (l.is(Token::Kind::left_parenthesis)) {
@@ -55,18 +55,15 @@ Procedure::Ptr Procedure::parse(Lexer &l, Declaration::Ptr parent) {
 	l.consume(Token::Kind::END);
 	l.expect(Token::Kind::identifier);
 	if (l.representation() != procedure_name) {
-		throw Error {
-			"procedure name " + procedure_name +
-			" does not match END " + l.representation()
-		};
+		err(quote(proc), " does not match END ", quote(l));
 	};
 	l.advance();
 	l.consume(Token::Kind::semicolon);
 	return proc;
 }
-#line 781
+#line 819
 void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
-	if (! p) { throw Error { "no PROCEDURE" }; }
+	if (! p) { err("no PROCEDURE"); }
 	if (l.is(Token::Kind::BEGIN)) {
 		l.advance();
 		// statement sequence
@@ -80,20 +77,20 @@ void Procedure::parse_statements(Lexer &l, Procedure::Ptr p) {
 		}
 	}
 	if (p->return_type()) {
-		throw Error { "PROCEDURE needs RETURN with value" };
+		err(quote(p), " needs RETURN with value");
 	}
 	std::cout << "\tret void\n}\n\n";
 }
-#line 806
+#line 844
 void Procedure::return_integer_value(Procedure::Ptr p, int value) {
-	if (! p) { throw Error { "no PROCEDURE" }; }
+	if (! p) { err("no PROCEDURE"); }
 	auto rep { Type::ir_representation(p->return_type()) };
 	if (rep != "i32") {
-		throw Error { "PROCEDURE has wrong RETURN TYPE" };
+		err(quote(p), " has wrong RETURN TYPE");
 	}
 	std::cout << "\tret " + rep + " " << value << "\n}\n\n";
 }
-#line 821
+#line 859
 Procedure::Ptr Procedure::parse_init(Lexer &l, Declaration::Ptr parent) {
 	auto proc { create("_init", true, nullptr, parent) };
 	parse_statements(l, proc);

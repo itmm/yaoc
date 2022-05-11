@@ -1,4 +1,4 @@
-#line 639 "1_fn-gen.md"
+#line 676 "1_fn-gen.md"
 #include "scope.h"
 
 #include "err.h"
@@ -13,6 +13,6 @@ Declaration::Ptr Scoping::lookup(std::string name) {
 void Scoping::insert(Declaration::Ptr decl) {
 	auto res { entries_.insert({ decl->name(), decl }) };
 	if (! res.second) {
-		throw Error { "Element " + decl->name() + " inserted twice" };
+		err("element ", quote(decl), " inserted twice");
 	}
 }
