@@ -939,7 +939,7 @@ std::string Module::mangle(std::string name) {
 
 ## Das `SYSTEM`-Modul
 
-`sys.h`
+Das `SYSTEM`-Modul wird in `sys.h` definiert.
 
 ```c++
 #pragma once
@@ -949,7 +949,16 @@ std::string Module::mangle(std::string name) {
 Module::Ptr get_SYSTEM();
 ```
 
-`sys.cpp`
+Es enthält in `sys.cpp` alle Typen und Prozeduren, die von der Sprache
+vorgegeben werden.  An dieser Stelle benötigen wir nur den Typ `INTEGER`, der
+auf den IR-Typ `i32` abgebildet wird.
+
+Zusätzlich enthält `SYSTEM` sich selbst als Referenz.
+Dadurch kann das `SYSTEM`-Modul auch angegeben werden, als wenn es
+importiert worden wäre. Das schafft eine zirkuläre Referenz, die durch
+das Reference Counting des `shared_ptr` nicht aufgelöst werden kann.
+Da es aber eh nur eine Instanz von `SYSTEM` gibt, die niemals freigegeben
+wird, macht dies hier keine Probleme.
 
 ```c++
 #include "sys.h"
@@ -967,7 +976,11 @@ Module::Ptr get_SYSTEM() {
 ```
 
 
-# Alles zusammensetzen
+## Alles zusammensetzen
+
+Nachdem alle notwendigen Mechanismen eingeführt sind, kann nun das
+Beispiel-Programm direkt in IR-Code umgesetzt werden.
+Die behelfsmäßige Generierung der Ausgabe wird auskommentiert.
 
 `yaoc.cpp`
 
@@ -986,3 +999,30 @@ Module::Ptr get_SYSTEM() {
 	#endif
 // ...
 ```
+
+## Zusammenfassung
+
+In diesem Beitrag haben wir einen riesigen Schritt unternommen.
+Aus dem Nichts heraus ist ein Programm entstanden, dass eine sehr beschränkte
+Untermenge von Oberon parsen kann und daraus validen IR-Code erstellt.
+Dazu ist das Zerlegen der Eingabe in Tokens mit dem Lexer notwendig,
+Deklarationen werden hierarchisch in Scopes abgelegt, es gibt
+
+* Module,
+* Prozeduren und
+* Typen
+
+als eigene Klassen und bereits das `SYSTEM`-Modul um den Typ `INTEGER`
+bereit zu stellen.
+
+Die größte Einschränkung ist sicherlich, dass eine Prozedur nur aus einer
+`RETURN`-Anweisung bestehen darf und diese maximal direkt eine Zahl
+zurückliefern darf.
+
+Als nächste Schritte ergibt sich daher:
+
+* Komplexe Ausdrücke in `RETURN`-Anweisungen zulassen,
+* Variablen in einer Prozedur definieren und Werte zuweisen,
+* Parameter von Prozeduren zulassen.
+
+Damit kann dann schon ziemlich umfangreich mit ganzen Zahlen gerechnet werden.
